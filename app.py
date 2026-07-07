@@ -77,20 +77,28 @@ CURATED_ATTRACTIONS = [
 ]
 
 CURATED_RESTAURANTS = [
-    {"name": "Versailles Restaurant", "lat": 25.7900, "lon": -80.1300, "price": 30, "cuisine": "Cuban"},
-    {"name": "Joe's Stone Crab", "lat": 25.7700, "lon": -80.1300, "price": 60, "cuisine": "Seafood"},
-    {"name": "Cafe Avanti", "lat": 25.7800, "lon": -80.1300, "price": 40, "cuisine": "Italian"},
-    {"name": "Zuma Miami", "lat": 25.7650, "lon": -80.1860, "price": 55, "cuisine": "Japanese"},
-    {"name": "CVI.CHE 105", "lat": 25.7670, "lon": -80.1890, "price": 35, "cuisine": "Peruvian"},
-    {"name": "The Forge", "lat": 25.7880, "lon": -80.1310, "price": 80, "cuisine": "Steakhouse"},
-    {"name": "La Sandwicherie", "lat": 25.7820, "lon": -80.1310, "price": 15, "cuisine": "French"},
-    {"name": "Yardbird Southern Table & Bar", "lat": 25.7790, "lon": -80.1300, "price": 45, "cuisine": "Southern"},
+    {"name": "Versailles Restaurant", "lat": 25.7900, "lon": -80.1300, "price": 30, "cuisine": "Cuban", "rating": 4.5},
+    {"name": "Joe's Stone Crab", "lat": 25.7700, "lon": -80.1300, "price": 60, "cuisine": "Seafood", "rating": 4.7},
+    {"name": "Cafe Avanti", "lat": 25.7800, "lon": -80.1300, "price": 40, "cuisine": "Italian", "rating": 4.2},
+    {"name": "Zuma Miami", "lat": 25.7650, "lon": -80.1860, "price": 55, "cuisine": "Japanese", "rating": 4.6},
+    {"name": "CVI.CHE 105", "lat": 25.7670, "lon": -80.1890, "price": 35, "cuisine": "Peruvian", "rating": 4.3},
+    {"name": "The Forge", "lat": 25.7880, "lon": -80.1310, "price": 80, "cuisine": "Steakhouse", "rating": 4.8},
+    {"name": "La Sandwicherie", "lat": 25.7820, "lon": -80.1310, "price": 15, "cuisine": "French", "rating": 4.1},
+    {"name": "Yardbird Southern Table & Bar", "lat": 25.7790, "lon": -80.1300, "price": 45, "cuisine": "Southern", "rating": 4.4},
 ]
 
 CURATED_BEACHES = [
     {"name": "South Beach", "lat": 25.7812, "lon": -80.1300, "type": "beach"},
     {"name": "Miami Beach (Mid-Beach)", "lat": 25.7930, "lon": -80.1300, "type": "beach"},
     {"name": "Crandon Park Beach", "lat": 25.7070, "lon": -80.1580, "type": "beach"},
+]
+
+CURATED_EVENING_ACTIVITIES = [
+    {"name": "Evening stroll on Ocean Drive", "lat": 25.7812, "lon": -80.1300, "duration": 1, "price": 0, "type": "Nightlife"},
+    {"name": "Sunset at Lummus Park", "lat": 25.7820, "lon": -80.1290, "duration": 1, "price": 0, "type": "Sightseeing"},
+    {"name": "Wynwood nightlife", "lat": 25.8010, "lon": -80.1990, "duration": 2, "price": 0, "type": "Nightlife"},
+    {"name": "South Pointe Park sunset", "lat": 25.7670, "lon": -80.1330, "duration": 1, "price": 0, "type": "Sightseeing"},
+    {"name": "Lincoln Road Mall evening walk", "lat": 25.7905, "lon": -80.1390, "duration": 1.5, "price": 0, "type": "Shopping"},
 ]
 
 # Activity mapping to filter attractions
@@ -100,14 +108,22 @@ ACTIVITY_MAP = {
     "Museums": "Museums",
     "Food & Dining": "Food & Dining",
     "Shopping": "Shopping",
-    "Nightlife": "Sightseeing"  # fallback
+    "Nightlife": "Nightlife"
+}
+
+# Transit cost mapping
+TRANSIT_COST = {
+    "Public Bus": 3,
+    "Ride‑share (Uber/Lyft)": 15,
+    "Bicycle": 0,
+    "Walking": 0,
+    "Rental Car": 35,
 }
 
 # -------------------------------
-# Generate itinerary from curated data (deterministic with seed)
+# Generate itinerary from curated data
 # -------------------------------
-def generate_curated_itinerary(num_people, budget, trip_days, selected_activities, seed=42):
-    random.seed(seed)  # for reproducibility
+def generate_curated_itinerary(num_people, budget, trip_days, selected_activities, selected_transit, start_date, seed=None):
     # Filter attractions based on selected activities
     filtered_attractions = []
     for act in selected_activities:
@@ -122,44 +138,60 @@ def generate_curated_itinerary(num_people, budget, trip_days, selected_activitie
     # Pick up to 3 unique attractions per day (we'll cycle)
     unique_attractions = list({a['name']: a for a in filtered_attractions}.values())
     
-    # Select a hotel (based on budget)
-    if budget > 0:
-        available_hotels = [h for h in CURATED_HOTELS if h['price'] <= budget/trip_days * 1.5]
+    # Resolve transit mode and cost per person per day
+    if not selected_transit:
+        selected_transit = ["Ride‑share (Uber/Lyft)"]
+    primary_transit = selected_transit[0]
+    transit_cost_per_person = TRANSIT_COST.get(primary_transit, 15)
+    
+    # Per-person budget (total budget / num_people)
+    per_person_budget = budget / num_people if num_people > 0 else budget
+    per_person_daily = per_person_budget / trip_days if trip_days > 0 else 0
+    
+    # Select a hotel (based on per-person budget) — hotel is shared so divide cost among group
+    hotel_budget_per_night = per_person_daily * num_people * 0.4  # ~40% of total daily budget for hotel
+    if per_person_budget > 0:
+        available_hotels = [h for h in CURATED_HOTELS if h['price'] <= hotel_budget_per_night]
     else:
         available_hotels = CURATED_HOTELS
     if not available_hotels:
         available_hotels = CURATED_HOTELS
     hotel = random.choice(available_hotels)
     
-    # Select restaurants (based on budget)
-    if budget > 0:
-        affordable_restaurants = [r for r in CURATED_RESTAURANTS if r['price'] <= (budget/trip_days) * 0.5]
+    # Select restaurants (based on per-person budget)
+    meal_budget = per_person_daily * 0.3  # ~30% of per-person daily budget for one meal
+    if per_person_budget > 0:
+        affordable_restaurants = [r for r in CURATED_RESTAURANTS if r['price'] <= meal_budget]
     else:
         affordable_restaurants = CURATED_RESTAURANTS
     if not affordable_restaurants:
         affordable_restaurants = CURATED_RESTAURANTS
     
-    # Pick 2 restaurants for variety
-    selected_restaurants = random.sample(affordable_restaurants, min(2, len(affordable_restaurants)))
+    # Pick 2 restaurants for variety (or 1 if only 1 is affordable)
+    num_restaurants = min(2, len(affordable_restaurants))
+    selected_restaurants = random.sample(affordable_restaurants, num_restaurants)
     
     # Select beaches if "Beach" is in activities
     beach = None
     if "Beach" in selected_activities:
         beach = random.choice(CURATED_BEACHES)
     
+    # Check if evening activities are relevant
+    has_evening = "Nightlife" in selected_activities or "Sightseeing" in selected_activities
+    
     # Build daily plan
     itinerary = []
-    daily_budget = budget / trip_days if trip_days > 0 else 0
     
     for day in range(1, trip_days + 1):
+        day_date = (start_date + timedelta(days=day - 1))
         day_plan = {
             'day': day,
-            'date': (datetime.now() + timedelta(days=day)).strftime('%A, %B %d'),
+            'date': day_date.strftime('%A, %B %d'),
             'hotel': hotel,
             'activities': [],
             'meals': [],
             'transport': [],
-            'cost': 0
+            'cost_per_person': 0,
         }
         
         # Morning activity (cycle through attractions)
@@ -174,7 +206,7 @@ def generate_curated_itinerary(num_people, budget, trip_days, selected_activitie
                 'lat': act['lat'],
                 'lon': act['lon']
             })
-            day_plan['cost'] += act['price']
+            day_plan['cost_per_person'] += act['price']
         
         # Lunch
         lunch = selected_restaurants[day % len(selected_restaurants)]
@@ -185,7 +217,7 @@ def generate_curated_itinerary(num_people, budget, trip_days, selected_activitie
             'lat': lunch['lat'],
             'lon': lunch['lon']
         })
-        day_plan['cost'] += lunch['price']
+        day_plan['cost_per_person'] += lunch['price']
         
         # Afternoon: beach if selected, else another attraction
         if beach and day % 2 == 1:
@@ -197,20 +229,18 @@ def generate_curated_itinerary(num_people, budget, trip_days, selected_activitie
                 'lat': beach['lat'],
                 'lon': beach['lon']
             })
-        else:
-            # second attraction
-            if len(unique_attractions) > 1:
-                idx2 = (day + 1) % len(unique_attractions)
-                act2 = unique_attractions[idx2]
-                day_plan['activities'].append({
-                    'name': act2['name'],
-                    'time': '2:30 PM',
-                    'duration': f"{act2['duration']}h",
-                    'cost': act2['price'],
-                    'lat': act2['lat'],
-                    'lon': act2['lon']
-                })
-                day_plan['cost'] += act2['price']
+        elif len(unique_attractions) > 1:
+            idx2 = (day + 1) % len(unique_attractions)
+            act2 = unique_attractions[idx2]
+            day_plan['activities'].append({
+                'name': act2['name'],
+                'time': '2:30 PM',
+                'duration': f"{act2['duration']}h",
+                'cost': act2['price'],
+                'lat': act2['lat'],
+                'lon': act2['lon']
+            })
+            day_plan['cost_per_person'] += act2['price']
         
         # Dinner
         dinner = selected_restaurants[(day + 1) % len(selected_restaurants)]
@@ -221,27 +251,31 @@ def generate_curated_itinerary(num_people, budget, trip_days, selected_activitie
             'lat': dinner['lat'],
             'lon': dinner['lon']
         })
-        day_plan['cost'] += dinner['price']
+        day_plan['cost_per_person'] += dinner['price']
         
-        # Evening activity (if day even, add a walk)
-        if day % 2 == 0:
+        # Evening activity (only on even days, and only if relevant interests)
+        if has_evening and day % 2 == 0:
+            ev = CURATED_EVENING_ACTIVITIES[(day // 2 - 1) % len(CURATED_EVENING_ACTIVITIES)]
             day_plan['activities'].append({
-                'name': 'Evening stroll on Ocean Drive',
+                'name': ev['name'],
                 'time': '9:00 PM',
-                'duration': '1h',
-                'cost': 0,
-                'lat': 25.7812,
-                'lon': -80.1300  # approximate
+                'duration': f"{ev['duration']}h",
+                'cost': ev['price'],
+                'lat': ev['lat'],
+                'lon': ev['lon']
             })
+            day_plan['cost_per_person'] += ev['price']
         
-        # Transport (flat fee)
-        transport_cost = 15
-        day_plan['cost'] += transport_cost
-        day_plan['transport'].append({'mode': 'Ride‑share / Bus', 'cost': transport_cost})
+        # Transport cost per person
+        day_plan['cost_per_person'] += transit_cost_per_person
+        day_plan['transport'].append({'mode': primary_transit, 'cost': transit_cost_per_person})
         
-        # Accommodation
-        hotel_cost = hotel['price']
-        day_plan['cost'] += hotel_cost
+        # Accommodation: hotel cost split among group
+        hotel_per_person = hotel['price'] / num_people
+        day_plan['cost_per_person'] += hotel_per_person
+        
+        # Total day cost = per_person * num_people
+        day_plan['cost'] = day_plan['cost_per_person'] * num_people
         
         itinerary.append(day_plan)
     
@@ -275,6 +309,12 @@ with st.sidebar:
         default=["Walking", "Ride‑share (Uber/Lyft)"]
     )
     
+    start_date = st.date_input(
+        "📆 Trip Start Date",
+        value=datetime.now() + timedelta(days=7),
+        help="What day does your trip start?"
+    )
+    
     st.divider()
     submitted = st.button("✨ Plan My Trip", type="primary", use_container_width=True)
     
@@ -302,7 +342,7 @@ if 'itinerary' not in st.session_state:
 # If submit, generate and store
 if submitted:
     itinerary, hotel, restaurants, attractions, beach = generate_curated_itinerary(
-        num_people, budget, trip_days, activities, seed=42
+        num_people, budget, trip_days, activities, transit, start_date
     )
     total_cost = sum(day['cost'] for day in itinerary)
     st.session_state.itinerary = itinerary
@@ -338,11 +378,11 @@ if st.session_state.itinerary is not None:
     with col2:
         st.markdown(f'<div class="metric-card"><h4>Estimated Cost</h4><p style="font-size:1.8rem; font-weight:700; color:#FF6B6B;">${total_cost:,.0f}</p></div>', unsafe_allow_html=True)
     with col3:
-        daily = budget/trip_days if trip_days>0 else 0
-        st.markdown(f'<div class="metric-card"><h4>Daily Budget</h4><p style="font-size:1.8rem; font-weight:700; color:#FFD93D;">${daily:.2f}</p></div>', unsafe_allow_html=True)
+        per_person_cost = total_cost / num_people if num_people > 0 else total_cost
+        st.markdown(f'<div class="metric-card"><h4>Per Person Cost</h4><p style="font-size:1.8rem; font-weight:700; color:#FFD93D;">${per_person_cost:,.0f}</p></div>', unsafe_allow_html=True)
     with col4:
-        per_person = budget/num_people if num_people>0 else 0
-        st.markdown(f'<div class="metric-card"><h4>Per Person</h4><p style="font-size:1.8rem; font-weight:700; color:#9B5DE5;">${per_person:.2f}</p></div>', unsafe_allow_html=True)
+        per_person_budget = budget / num_people if num_people > 0 else budget
+        st.markdown(f'<div class="metric-card"><h4>Budget Per Person</h4><p style="font-size:1.8rem; font-weight:700; color:#9B5DE5;">${per_person_budget:,.0f}</p></div>', unsafe_allow_html=True)
     with col5:
         remaining = max(0, budget - total_cost)
         st.markdown(f'<div class="metric-card"><h4>Remaining</h4><p style="font-size:1.8rem; font-weight:700; color:#2C3E50;">${remaining:,.0f}</p></div>', unsafe_allow_html=True)
@@ -414,12 +454,13 @@ if st.session_state.itinerary is not None:
                 st.markdown("**🚗 Transport:**")
                 for t in day['transport']:
                     st.write(f"• {t['mode']} – ${t['cost']}")
-                st.markdown("**💰 Breakdown:**")
-                st.write(f"Accommodation: ${day['hotel']['price']}")
+                st.markdown("**💰 Breakdown (per person):**")
+                st.write(f"Accommodation: ${day['hotel']['price']/num_people:.2f}")
                 st.write(f"Activities: ${sum(a['cost'] for a in day['activities'])}")
                 st.write(f"Meals: ${sum(m['cost'] for m in day['meals'])}")
                 st.write(f"Transport: ${sum(t['cost'] for t in day['transport'])}")
-                st.write(f"**Total: ${day['cost']:.2f}**")
+                st.write(f"**Per person: ${day['cost_per_person']:.2f}**")
+                st.write(f"**Group total: ${day['cost']:.2f}**")
     
     # Download button
     st.markdown("### 📥 Download Itinerary")
@@ -474,7 +515,7 @@ if st.session_state.itinerary is not None:
                 <h4>{r['name']}</h4>
                 <p>🍽️ {r['cuisine']}</p>
                 <p>💰 ${r['price']}/person</p>
-                <p>⭐ {random.randint(3,5)}/5</p>
+                <p>⭐ {r['rating']}/5</p>
             </div>
             """, unsafe_allow_html=True)
     
