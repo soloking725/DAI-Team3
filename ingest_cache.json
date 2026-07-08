@@ -1,1 +1,27 @@
-{}
+{
+  "https://travel.state.gov/content/travel/en/us-visas/study.html": {
+    "hash": "86cfc11b0d94ddb2f32eb4779ed8dd2f",
+    "scraped_at": "2026-07-08T14:51:29.873744",
+    "chunk_count": 7
+  },
+  "https://travel.state.gov/content/travel/en/us-visas.html": {
+    "hash": "4215d922f7c91338a241e2bc235386b4",
+    "scraped_at": "2026-07-08T14:51:30.799424",
+    "chunk_count": 10
+  },
+  "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors": {
+    "hash": "2c7a3c994610ec3c0efeaab64d3f3257",
+    "scraped_at": "2026-07-08T14:51:31.224890",
+    "chunk_count": 3
+  },
+  "https://studyinthestates.dhs.gov/": {
+    "hash": "4856520612a7465905a2b5a5ad6eea4b",
+    "scraped_at": "2026-07-08T14:51:31.756991",
+    "chunk_count": 4
+  },
+  "https://www.uscis.gov/": {
+    "hash": "ed3021686c6930c70a523e56e525968c",
+    "scraped_at": "2026-07-08T14:51:32.031734",
+    "chunk_count": 3
+  }
+}

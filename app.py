@@ -69,7 +69,7 @@ with search_col1:
         label_visibility="collapsed",
     )
 with search_col2:
-    search_btn = st.button("🔍 Search", type="primary", use_container_width=True)
+    search_btn = st.button("Search", type="primary", use_container_width=True)
 
 if search_btn and search_input.strip():
     st.session_state.chat_query = search_input.strip()
@@ -91,21 +91,18 @@ with col1:
     st.page_link(
         "pages/01_F-1_Student_Visa.py",
         label="**F-1 Student Visa**\n\nAcademic student visa for individuals enrolled in accredited US academic institutions or language training programs. The most common visa for international students pursuing degrees.\n\n→ View F-1 guide",
-        icon="🎓",
     )
 
 with col2:
     st.page_link(
         "pages/02_J-1_Exchange_Visitor.py",
         label="**J-1 Exchange Visitor**\n\nExchange visitor visa for students participating in government-approved exchange programs, including university programs, research assistantships, and summer work travel.\n\n→ View J-1 guide",
-        icon="🌍",
     )
 
 with col3:
     st.page_link(
         "pages/03_M-1_Vocational_Visa.py",
         label="**M-1 Vocational Student**\n\nVocational student visa for individuals enrolled in vocational or technical programs that are primarily practical or technical rather than academic in nature.\n\n→ View M-1 guide",
-        icon="🔧",
     )
 
 # -------------------------------------------------------

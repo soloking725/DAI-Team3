@@ -1,149 +1,141 @@
-"""
-About & Disclaimer - Information about the tool.
-Page: 06_About.py
-"""
+"""About page with disclaimer, sources, and limitations."""
+
 import streamlit as st
-from shared.styles import get_global_css
-from shared.components import render_nav_bar, render_disclaimer, render_footer, render_card, render_floating_chat
 
-# -------------------------------------------------------
-# Page config
-# -------------------------------------------------------
-st.set_page_config(
-    page_title="About - US Student Visa Information Resource",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+from shared.components import (
+    render_card,
+    render_disclaimer,
+    render_floating_chat,
+    render_footer,
+    render_nav_bar,
+    render_section,
+    render_source_citations,
 )
+from shared.styles import get_global_css
 
-# Global CSS
+st.set_page_config(page_title="About", page_icon=":book:", layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
-# -------------------------------------------------------
-# Navigation
-# -------------------------------------------------------
 render_nav_bar()
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
 
-# -------------------------------------------------------
-# Page header
-# -------------------------------------------------------
 st.markdown("""
-<div style="max-width:900px; margin:0 auto; padding:2rem 1rem 1rem;">
-    <h1 style="color:#1a365d; margin-bottom:0.5rem;">About This Tool</h1>
-    <p style="color:#4a5568; font-size:1.05rem; line-height:1.6;">
-        The US Student Visa Information Resource provides factual information about F-1, J-1, and M-1
-        student visa categories and application processes, retrieved from official government sources.
+<div style="max-width:1200px; margin:0 auto; padding:2rem 1rem 0;">
+    <h1 style="font-size:1.75rem; font-weight:700; color:#1a365d; margin:0 0 0.5rem;">
+        About This Tool
+    </h1>
+    <p style="color:#4a5568; font-size:1rem; margin:0 0 2rem;">
+        Information about this US student visa resource, its data sources, and its limitations.
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# Content sections
+# Purpose
 # -------------------------------------------------------
-content_max = '<div style="max-width:900px; margin:0 auto; padding:0 1rem;">'
+st.markdown(render_section("Purpose"), unsafe_allow_html=True)
 
-content_max += render_card(
-    "What This Tool Does",
-    """
-    <p>This tool allows users to access factual information about US student visa categories (F-1, J-1, M-1)
-    and receive answers sourced from official US government websites. It uses Retrieval-Augmented Generation
-    (RAG) to retrieve information from ingested government documents and cite sources.</p>
-    <p>The tool covers student visa categories including F-1 (academic students), J-1 (exchange visitors),
-    and M-1 (vocational students). It provides information on required documents, fees, application processes,
-    processing times, common refusal reasons, and post-arrival steps.</p>
+st.markdown(render_card(
+    title="What This Tool Does",
+    content_html="""
+    <p>This tool provides factual, sourced information about US student visa categories (F-1, J-1, M-1) and post-arrival requirements. It is designed to help international students understand the visa application process, required documents, fees, and procedures based on official US government sources.</p>
+    <p>The tool uses Retrieval-Augmented Generation (RAG) to answer questions by retrieving relevant information from a database of official government content. Every answer includes clickable source links to the original government pages.</p>
     """,
-)
+), unsafe_allow_html=True)
 
-content_max += render_card(
-    "What This Tool Does Not Do",
-    """
+# -------------------------------------------------------
+# Official Sources
+# -------------------------------------------------------
+st.markdown(render_section("Official Sources"), unsafe_allow_html=True)
+
+st.markdown(render_card(
+    title="Data Sources",
+    content_html="""
+    <p>All information in this tool is retrieved from official US government websites:</p>
     <ul>
-        <li>Provide legal advice</li>
-        <li>Evaluate individual cases or situations</li>
-        <li>Guarantee approval or predict outcomes</li>
-        <li>Replace consultation with a licensed immigration attorney</li>
-        <li>Accept or review personal application documents</li>
-        <li>Diagnose which visa type is best for your specific situation</li>
-        <li>Provide information on non-student visa categories (H-1B, L-1, family-based visas, etc.)</li>
+        <li><strong>US Citizenship and Immigration Services (USCIS)</strong> - Visa categories, application procedures, processing times</li>
+        <li><strong>US Department of State</strong> - Visa interview requirements, refusal grounds, travel information</li>
+        <li><strong>Student and Exchange Visitor Program (SEVP)</strong> - Student status requirements, school certification</li>
+        <li><strong>Social Security Administration (SSA)</strong> - SSN application requirements for immigrants and nonimmigrants</li>
+        <li><strong>Internal Revenue Service (IRS)</strong> - Tax obligations for nonresident aliens</li>
     </ul>
     """,
-)
+), unsafe_allow_html=True)
 
-content_max += render_card(
-    "Official Sources",
-    """
-    <p>All information in this tool comes from the following official US government websites:</p>
+st.markdown(render_source_citations([
+    {
+        "url": "https://www.uscis.gov",
+        "title": "US Citizenship and Immigration Services",
+        "agency": "USCIS",
+        "section": "Main Website",
+    },
+    {
+        "url": "https://travel.state.gov",
+        "title": "US Department of State - Travel Documents",
+        "agency": "State Department",
+        "section": "Visa Information",
+    },
+    {
+        "url": "https://studyinthestates.dhs.gov",
+        "title": "Student and Exchange Visitor Program",
+        "agency": "SEVP",
+        "section": "Student Resources",
+    },
+    {
+        "url": "https://www.ssa.gov",
+        "title": "Social Security Administration",
+        "agency": "SSA",
+        "section": "SSN Information",
+    },
+    {
+        "url": "https://www.irs.gov",
+        "title": "Internal Revenue Service",
+        "agency": "IRS",
+        "section": "Tax Information",
+    },
+]), unsafe_allow_html=True)
+
+# -------------------------------------------------------
+# Limitations
+# -------------------------------------------------------
+st.markdown(render_section("Limitations"), unsafe_allow_html=True)
+
+st.markdown(render_card(
+    title="What This Tool Does Not Do",
+    content_html="""
     <ul>
-        <li><a href="https://www.uscis.gov" target="_blank">US Citizenship and Immigration Services (USCIS)</a> - Form instructions, fee schedules, OPT/CPT guidelines</li>
-        <li><a href="https://travel.state.gov" target="_blank">US Department of State</a> - Visa application process, interview preparation, refusal grounds, DS-160</li>
-        <li><a href="https://studyinthestates.dhs.gov" target="_blank">SEVP - Student and Exchange Visitor Program</a> - F-1 and M-1 regulations, school certification</li>
-        <li><a href="https://exchanges.state.gov" target="_blank">J Exchange Visitor Program</a> - J-1 exchange visitor regulations and program requirements</li>
-        <li><a href="https://www.ssa.gov" target="_blank">Social Security Administration (SSA)</a> - SSN application for international students</li>
-        <li><a href="https://www.irs.gov" target="_blank">Internal Revenue Service (IRS)</a> - Tax obligations for nonresident aliens</li>
+        <li><strong>Not legal advice</strong> - This tool provides factual information from official sources. It does not provide legal advice or represent you in immigration proceedings.</li>
+        <li><strong>Not eligibility assessment</strong> - This tool cannot determine your eligibility for a visa or predict the outcome of your application.</li>
+        <li><strong>Not personalized guidance</strong> - This tool does not provide strategic recommendations or tailor advice to your specific situation.</li>
+        <li><strong>Not a substitute for official sources</strong> - Always verify information on the original government websites, as policies and fees may change.</li>
+        <li><strong>Not for non-US visas</strong> - This tool only covers US student visa categories and does not provide information about other countries' visa programs.</li>
     </ul>
     """,
-)
+), unsafe_allow_html=True)
 
-content_max += render_card(
-    "Chatbot and RAG Pipeline",
-    """
-    <p>The Ask a Question page uses Retrieval-Augmented Generation (RAG) to answer student visa questions:</p>
+# -------------------------------------------------------
+# Legal Disclaimer
+# -------------------------------------------------------
+st.markdown(render_section("Legal Disclaimer"), unsafe_allow_html=True)
+
+st.markdown(render_card(
+    title="Consult a Licensed Immigration Attorney",
+    content_html="""
+    <p>This tool is provided for informational purposes only. The information contained herein does not constitute legal advice and should not be relied upon as such. Immigration laws and regulations change frequently, and the information provided may become outdated.</p>
+    <p style="margin-top:1rem;">For legal advice about your specific immigration situation, consult a licensed immigration attorney. You can find qualified immigration attorneys through:</p>
     <ul>
-        <li><strong>Embeddings:</strong> sentence-transformers/all-MiniLM-L6-v2 (free, local)</li>
-        <li><strong>Vector database:</strong> ChromaDB for semantic search over ingested government documents</li>
-        <li><strong>Chunking:</strong> 600-character chunks with 100-character overlap for precise legal text retrieval</li>
-        <li><strong>Generation:</strong> Qwen API (OpenAI-compatible client) with strict system prompts</li>
-        <li><strong>Citation:</strong> Every answer includes clickable source links to the original government page</li>
+        <li><strong>American Immigration Lawyers Association (AILA)</strong> - Find an attorney near you</li>
+        <li><strong>State bar associations</strong> - Verify attorney credentials and licensing</li>
     </ul>
     """,
-)
-
-content_max += render_card(
-    "Safeguards",
-    """
-    <p>This tool includes multiple safeguards to prevent it from providing legal advice:</p>
-    <ul>
-        <li>Strict system prompts instruct the AI to provide only factual information from official sources</li>
-        <li>Input classification detects questions asking for legal advice and routes them to a disclaimer</li>
-        <li>Output filtering scans AI responses for patterns suggesting legal advice and appends warnings</li>
-        <li>Confidence gating prevents the tool from answering questions without sufficient source material</li>
-        <li>Persistent disclaimers are visible on every page</li>
-    </ul>
-    """,
-)
-
-content_max += render_card(
-    "Finding an Immigration Attorney",
-    """
-    <p>For legal advice about your specific immigration situation, consult a licensed immigration
-    attorney. You can find qualified attorneys through:</p>
-    <ul>
-        <li>American Immigration Lawyers Association: <a href="https://www.aila.org/find-an-attorney" target="_blank">aila.org/find-an-attorney</a></li>
-        <li>Your state bar association's lawyer referral service</li>
-        <li>Legal aid organizations that offer immigration services</li>
-        <li>Your university's international student office (may maintain a list of recommended attorneys)</li>
-    </ul>
-    """,
-)
-
-content_max += render_card(
-    "Limitations",
-    """
-    <p>This tool has the following limitations:</p>
-    <ul>
-        <li>Information is sourced from government websites and may not reflect the most recent policy changes at the time of use.</li>
-        <li>Visa processing times and appointment availability vary by embassy and consulate and change frequently.</li>
-        <li>US immigration law and regulations change periodically. Always verify information with official sources.</li>
-        <li>The chatbot may not have answers for highly specific or unusual questions.</li>
-        <li>This tool does not provide information about visas for countries outside the United States.</li>
-    </ul>
-    """,
-)
-
-content_max += '</div>'
-st.markdown(content_max, unsafe_allow_html=True)
+    link_text="AILA Attorney Finder",
+    link_href="https://www.aila.org/find-an-attorney",
+), unsafe_allow_html=True)
 
 # -------------------------------------------------------
 # Footer
 # -------------------------------------------------------
 st.markdown(render_footer(), unsafe_allow_html=True)
+
+# Floating chat button
+render_floating_chat()

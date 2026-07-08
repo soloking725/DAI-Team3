@@ -10,27 +10,23 @@ def render_nav_bar(title="US Student Visa Information Resource", subtitle="Offic
     # Brand
     st.markdown(f"""
     <div class="top-nav">
-        <div class="top-nav-brand-col">
-            <p class="top-nav-brand">{title}</p>
-            <p class="top-nav-desc">{subtitle}</p>
+        <div class="top-nav-inner">
+            <div class="top-nav-brand-col">
+                <p class="top-nav-brand">{title}</p>
+                <p class="top-nav-desc">{subtitle}</p>
+            </div>
+            <div class="top-nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/01_F-1_Student_Visa" class="nav-link">F-1</a>
+                <a href="/02_J-1_Exchange_Visitor" class="nav-link">J-1</a>
+                <a href="/03_M-1_Vocational_Visa" class="nav-link">M-1</a>
+                <a href="/04_Ask_a_Question" class="nav-link">Ask a Question</a>
+                <a href="/05_Post_Visa_Guide" class="nav-link">Post-Arrival</a>
+                <a href="/06_About" class="nav-link">About</a>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-    # Nav links using st.page_link (actually works)
-    nav_cols = st.columns(6)
-    with nav_cols[0]:
-        st.page_link("pages/01_F-1_Student_Visa.py", label="F-1", icon="🎓")
-    with nav_cols[1]:
-        st.page_link("pages/02_J-1_Exchange_Visitor.py", label="J-1", icon="🌍")
-    with nav_cols[2]:
-        st.page_link("pages/03_M-1_Vocational_Visa.py", label="M-1", icon="🔧")
-    with nav_cols[3]:
-        st.page_link("pages/04_Ask_a_Question.py", label="Ask a Question", icon="💬")
-    with nav_cols[4]:
-        st.page_link("pages/05_Post_Visa_Guide.py", label="Post-Arrival", icon="✈️")
-    with nav_cols[5]:
-        st.page_link("pages/06_About.py", label="About", icon="ℹ️")
 
 
 def render_disclaimer():
@@ -156,7 +152,7 @@ def render_floating_chat():
     </style>
     """, unsafe_allow_html=True)
 
-    # The actual clickable navigation — uses Streamlit native page_link
+    # The actual clickable navigation uses Streamlit native page_link
     st.markdown('<div class="floating-chat-container">', unsafe_allow_html=True)
-    st.page_link("pages/04_Ask_a_Question.py", label="💬 Ask a Question")
+    st.page_link("pages/04_Ask_a_Question.py", label="Ask a Question")
     st.markdown('</div>', unsafe_allow_html=True)

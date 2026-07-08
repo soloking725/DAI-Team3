@@ -35,45 +35,68 @@ GLOBAL_CSS = """
         color: #4a5568;
     }
 
-    /* Top navigation bar (for non-home pages) */
+    /* Top navigation bar */
     .top-nav {
         background-color: #1a365d;
-        padding: 1rem 2rem;
-        border-bottom: 3px solid #2b6cb0;
+        border-bottom: 1px solid #2b6cb0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .top-nav-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0.75rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2rem;
+        flex-wrap: wrap;
     }
 
     .top-nav-brand-col {
         display: flex;
         flex-direction: column;
-    }
-
-    /* Nav link row (st.page_link buttons) */
-    .stPageLink {
-        color: #cbd5e0 !important;
-        text-decoration: none !important;
-    }
-    
-    .stPageLink:hover {
-        color: #ffffff !important;
-    }
-
-    /* Nav link row container */
-    div[data-testid="stHorizontalBlock"] > div > div > p {
-        color: #cbd5e0;
+        min-width: 250px;
     }
 
     .top-nav-brand {
         color: white;
-        font-size: 1.25rem;
+        font-size: 1.15rem;
         font-weight: 700;
         letter-spacing: -0.01em;
         margin: 0;
+        line-height: 1.3;
     }
 
     .top-nav-desc {
-        color: #cbd5e0;
+        color: #90cdf4;
+        font-size: 0.78rem;
+        margin: 0.15rem 0 0;
+        line-height: 1.4;
+    }
+
+    .top-nav-links {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+
+    .nav-link {
+        color: #cbd5e0 !important;
+        text-decoration: none !important;
         font-size: 0.85rem;
-        margin: 0;
+        font-weight: 500;
+        padding: 0.4rem 0.85rem;
+        border-radius: 4px;
+        transition: all 0.15s ease;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        white-space: nowrap;
+    }
+
+    .nav-link:hover {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.1);
     }
 
     /* Disclaimer banner */

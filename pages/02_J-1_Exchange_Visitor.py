@@ -1,176 +1,204 @@
-"""
-J-1 Exchange Visitor Visa - Dedicated information page.
-Page: 02_J-1_Exchange_Visitor.py
-"""
+"""J-1 Exchange Visitor information page."""
+
 import streamlit as st
-from shared.styles import get_global_css
-from shared.components import render_nav_bar, render_disclaimer, render_footer, render_card, render_source_citations, render_floating_chat
-from shared.components import render_coming_soon, render_chat_placeholder
 
-# -------------------------------------------------------
-# Page config
-# -------------------------------------------------------
-st.set_page_config(
-    page_title="J-1 Exchange Visitor - US Student Visa Information Resource",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+from shared.components import (
+    render_card,
+    render_disclaimer,
+    render_floating_chat,
+    render_footer,
+    render_nav_bar,
+    render_section,
+    render_source_citations,
 )
+from shared.styles import get_global_css
 
-# Global CSS
+st.set_page_config(page_title="J-1 Exchange Visitor", page_icon=":book:", layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
-# -------------------------------------------------------
-# Navigation
-# -------------------------------------------------------
 render_nav_bar()
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
 
-# -------------------------------------------------------
-# Page header
-# -------------------------------------------------------
 st.markdown("""
-<div style="max-width:900px; margin:0 auto; padding:2rem 1rem 1rem;">
-    <h1 style="color:#1a365d; margin-bottom:0.5rem;">J-1 Exchange Visitor Visa</h1>
-    <p style="color:#4a5568; font-size:1.05rem; line-height:1.6;">
-        The J-1 visa is for individuals approved to participate in work and study-based exchange visitor
-        programs in the US. It covers students, scholars, trainees, teachers, and researchers.
+<div style="max-width:1200px; margin:0 auto; padding:2rem 1rem 0;">
+    <h1 style="font-size:1.75rem; font-weight:700; color:#1a365d; margin:0 0 0.5rem;">
+        J-1 Exchange Visitor Visa
+    </h1>
+    <p style="color:#4a5568; font-size:1rem; margin:0 0 2rem;">
+        Exchange visitor visa for individuals approved to participate in US government-sponsored exchange programs.
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# Content sections
-# -------------------------------------------------------
-content_max = '<div style="max-width:900px; margin:0 auto; padding:0 1rem;">'
-
 # Overview
-content_max += render_card(
-    "Overview",
-    """
-    <p>The J-1 exchange visitor visa is designed for participants in programs approved by the US
-    Department of State. It promotes cultural exchange through work and study-based activities. J-1
-    students are sponsored by designated exchange visitor programs that issue the DS-2019 form.</p>
-    <p>J-1 categories relevant to students include:</p>
+# -------------------------------------------------------
+st.markdown(render_section("Overview"), unsafe_allow_html=True)
+
+st.markdown(render_card(
+    title="What is the J-1 Visa?",
+    content_html="""
+    <p>The J-1 visa is issued to nonimmigrants approved to participate in work and study-based exchange visitor programs in the US. These programs are designed to promote cultural exchange and mutual understanding between the US and other countries.</p>
+    <p>Common J-1 categories for students include:</p>
     <ul>
-        <li><strong>Student:</strong> Enrolled in academic study programs (similar to F-1 but under the exchange visitor framework).</li>
-        <li><strong>Research Scholar:</strong> Researchers and postdoctoral scholars.</li>
-        <li><strong>Summer Work Travel:</strong> Short-term employment during summer vacation for enrolled students.</li>
-        <li><strong>Trainee:</strong> Recent graduates seeking supervised training in their field.</li>
+        <li><strong>University student</strong> - Degree or non-degree students enrolled in a US university, college, or seminary</li>
+        <li><strong>Research scholar</strong> - Researchers, professors, or assistants conducting research at US institutions</li>
+        <li><strong>Summer work travel</strong> - College students participating in approved summer work and travel programs</li>
+        <li><strong>Short-term scholarship</strong> - Individuals coming for short-term exchange, observation, or study</li>
+        <li><strong>Professor</strong> - Professors and researchers invited by US higher education institutions</li>
     </ul>
     """,
-)
+    link_text="Department of State Exchange Programs",
+    link_href="https://exchangeprogram.state.gov",
+), unsafe_allow_html=True)
 
-# Required documents
-content_max += render_card(
-    "Documents Needed for Visa Application",
-    """
-    <ul>
-        <li>Form DS-2019, Certificate of Eligibility for Exchange Visitor Status (issued by the exchange program sponsor)</li>
-        <li>Valid passport (must be valid for at least 6 months beyond intended period of stay)</li>
-        <li>Form DS-160 confirmation page (Online Nonimmigrant Visa Application)</li>
-        <li>Visa application fee receipt</li>
-        <li>SEVIS fee (I-901) payment receipt</li>
-        <li>Photograph meeting US visa requirements (2x2 inches, white background)</li>
-        <li>Financial evidence demonstrating ability to cover all expenses as stated on DS-2019</li>
-        <li>Program invitation letter or evidence of acceptance</li>
-        <li>Academic and professional documents supporting the exchange program</li>
-    </ul>
-    """,
-)
+# -------------------------------------------------------
+# Required Documents
+# -------------------------------------------------------
+st.markdown(render_section("Required Documents"), unsafe_allow_html=True)
 
+doc_col1, doc_col2 = st.columns(2)
+
+with doc_col1:
+    st.markdown(render_card(
+        title="Core Documents",
+        content_html="""
+        <ul>
+            <li><strong>Form DS-2019</strong> - Certificate of Eligibility issued by your program sponsor</li>
+            <li><strong>Valid passport</strong> - Must be valid for at least six months beyond your intended period of stay</li>
+            <li><strong>Form DS-160</strong> - Online nonimmigrant visa application confirmation page</li>
+            <li><strong>Visa application fee receipt</strong> - MRV fee payment (currently $185 for J-1)</li>
+            <li><strong>Photograph</strong> - 2x2 inches, taken within the last six months, white background</li>
+            <li><strong>SEVIS I-901 fee receipt</strong> - If required by your program category</li>
+        </ul>
+        """,
+    ), unsafe_allow_html=True)
+
+with doc_col2:
+    st.markdown(render_card(
+        title="Supporting Documents",
+        content_html="""
+        <ul>
+            <li><strong>Program sponsor letter</strong> - Confirmation of your exchange visitor program placement</li>
+            <li><strong>Financial evidence</strong> - Proof of sufficient funds to cover your stay in the US</li>
+            <li><strong>Academic transcripts</strong> - From previous educational institutions attended</li>
+            <li><strong>CV or resume</strong> - Especially important for research scholars and professors</li>
+            <li><strong>Proof of ties to home country</strong> - Evidence of intention to return after program completion</li>
+            <li><strong>Health insurance documentation</strong> - J-1 participants must meet State Department health insurance requirements</li>
+        </ul>
+        """,
+    ), unsafe_allow_html=True)
+
+st.markdown(render_source_citations([
+    {
+        "url": "https://travel.state.gov/content/travel/en/us-visas/study/exchange-visitor.html",
+        "title": "Exchange Visitor Visa - travel.state.gov",
+        "agency": "State Department",
+        "section": "Required Documents",
+    },
+]), unsafe_allow_html=True)
+
+# -------------------------------------------------------
 # Fees
-content_max += render_card(
-    "Fees",
-    """
-    <ul>
-        <li><strong>MRV Visa Application Fee:</strong> $185 (non-refundable, paid before interview appointment)</li>
-        <li><strong>SEVIS I-901 Fee:</strong> $220 for J-1 students (varies by program category; paid at fmjfee.gov)</li>
-        <li><strong>Reciprocity Fee:</strong> Varies by country; check travel.state.gov for country-specific fees</li>
-    </ul>
-    <p>Fee amounts are subject to change. Verify current fees at travel.state.gov before applying.</p>
-    """,
-)
+# -------------------------------------------------------
+st.markdown(render_section("Fee Schedule"), unsafe_allow_html=True)
 
-# Application process
-content_max += render_card(
-    "Application Process",
-    """
-    <ol>
-        <li>Apply to and accept placement in a US Department of State-approved exchange visitor program.</li>
-        <li>Receive Form DS-2019 from the exchange program sponsor.</li>
-        <li>Pay the SEVIS I-901 fee online at fmjfee.gov.</li>
-        <li>Complete the online DS-160 visa application at ceac.state.gov.</li>
-        <li>Pay the MRV visa application fee.</li>
-        <li>Schedule a visa interview appointment at the nearest US embassy or consulate.</li>
-        <li>Attend the visa interview with required documents (DS-2019, passport, DS-160 confirmation, fee receipts, financial evidence).</li>
-        <li>If approved, receive the visa stamp in passport.</li>
-        <li>Enter the US within 30 days of the program start date on the DS-2019.</li>
+st.markdown("""
+<div class="content-card">
+    <h3>Current Fees for J-1 Visa</h3>
+    <table style="width:100%; border-collapse:collapse; margin-top:1rem;">
+        <thead>
+            <tr style="border-bottom:2px solid #e2e8f0;">
+                <th style="text-align:left; padding:0.5rem; color:#1a365d; font-size:0.9rem;">Fee</th>
+                <th style="text-align:left; padding:0.5rem; color:#1a365d; font-size:0.9rem;">Amount</th>
+                <th style="text-align:left; padding:0.5rem; color:#1a365d; font-size:0.9rem;">Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">Visa Application Fee (MRV)</td>
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">$185</td>
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">Nonrefundable consular processing fee</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">SEVIS I-901 Fee (if applicable)</td>
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">$220</td>
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">Required for some J-1 categories. Check with your sponsor.</td>
+            </tr>
+            <tr>
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">Reciprocity Fee</td>
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">Varies</td>
+                <td style="padding:0.75rem 0.5rem; font-size:0.9rem; color:#4a5568;">Some countries require an additional fee. Check your country on the State Department website.</td>
+            </tr>
+        </tbody>
+    </table>
+    <p style="font-size:0.85rem; color:#718096; margin-top:1rem;">
+        Fees are current as of 2025. Visit the State Department website for the most up-to-date information.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# -------------------------------------------------------
+# Application Process
+# -------------------------------------------------------
+st.markdown(render_section("Application Process"), unsafe_allow_html=True)
+
+st.markdown("""
+<div class="content-card">
+    <h3>Step-by-Step Process</h3>
+    <ol style="padding-left:1.5rem; margin:0.5rem 0;">
+        <li style="margin-bottom:0.75rem;"><strong>Get your Form DS-2019</strong> - Your exchange program sponsor issues this after you are accepted into the program and meet financial requirements.</li>
+        <li style="margin-bottom:0.75rem;"><strong>Pay the SEVIS I-901 fee (if required)</strong> - Pay the fee online at fm.jfs.swIFT.gov and keep the receipt. Not all J-1 categories require this fee.</li>
+        <li style="margin-bottom:0.75rem;"><strong>Complete the DS-160</strong> - Fill out the online nonimmigrant visa application at ceac.state.gov and print the confirmation page.</li>
+        <li style="margin-bottom:0.75rem;"><strong>Pay the visa application fee</strong> - Pay the $185 MRV fee and keep the receipt. Some countries also require a reciprocity fee.</li>
+        <li style="margin-bottom:0.75rem;"><strong>Schedule your interview</strong> - Book a visa interview appointment at the nearest US embassy or consulate. Appointment wait times vary by location.</li>
+        <li style="margin-bottom:0.75rem;"><strong>Prepare for the interview</strong> - Gather all required documents and supporting evidence of your program and ties to your home country.</li>
+        <li><strong>Attend the visa interview</strong> - Bring your passport, Form DS-2019, DS-160 confirmation, fee receipts, and supporting documents to your scheduled interview.</li>
     </ol>
-    """,
-)
+</div>
+""", unsafe_allow_html=True)
 
-# Two-year home residency requirement
-content_max += render_card(
-    "Two-Year Home Country Physical Presence Requirement",
-    """
-    <p>Some J-1 exchange visitors are subject to the two-year home country physical presence requirement
-    under INA Section 212(e). This means they must return to their home country for two years before
-    being eligible for certain US immigrant visas or changing status to H-1B.</p>
-    <p>This requirement typically applies if:</p>
-    <ul>
-        <li>The exchange visitor's government or an externally funded program provided a grant, scholarship, or funding.</li>
-        <li>The field of study or research is on the US Department of State's Exchange Visitor Skills List for their country.</li>
-        <li>The exchange visitor is coming to the US for graduate medical training or research.</li>
-    </ul>
-    """,
-)
-
-# Common refusal reasons
-content_max += render_card(
-    "Common Refusal Reasons",
-    """
-    <ul>
-        <li>Failure to demonstrate strong ties to home country (immigrant intent under INA Section 214(b))</li>
-        <li>Failure to meet the requirements of the specific exchange visitor category</li>
-        <li>Invalid or expired Form DS-2019</li>
-        <li>Inadequate financial support for the program duration</li>
-        <li>Previous violations of US immigration law</li>
-        <li>Subject to two-year home residency requirement without a waiver</li>
-        <li>Insufficient English proficiency for the program</li>
-    </ul>
-    """,
-)
-
-# Processing times
-content_max += render_card(
-    "Processing Times",
-    """
-    <p>Visa processing times vary by US embassy or consulate and by season. J-1 applications may require
-    additional administrative processing. Check current appointment availability and processing estimates
-    at travel.state.gov for your specific location.</p>
-    """ + render_coming_soon("Live processing times data") + """
-    """,
-)
-
-# Sources
-content_max += render_source_citations([
-    {"title": "US Department of State - J-1 Exchange Visitor Program", "url": "https://travel.state.gov/content/travel/en/us-visas/study/exchange-visitor.html"},
-    {"title": "Department of State - Exchange Visitor Program", "url": "https://exchanges.state.gov"},
-    {"title": "USCIS - J Exchange Visitor", "url": "https://www.uscis.gov/j-exchange-visitor"},
-])
-
-content_max += '</div>'
-st.markdown(content_max, unsafe_allow_html=True)
+st.markdown(render_source_citations([
+    {
+        "url": "https://travel.state.gov/content/travel/en/us-visas/study/exchange-visitor.html",
+        "title": "Exchange Visitor Visa - travel.state.gov",
+        "agency": "State Department",
+        "section": "Application Steps",
+    },
+]), unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# Chat for follow-up
+# Processing Times
 # -------------------------------------------------------
-st.markdown('<div style="max-width:900px; margin:0 auto; padding:1.5rem 1rem;">', unsafe_allow_html=True)
-st.markdown('<h3 style="color:#1a365d;">Have a specific J-1 question?</h3>', unsafe_allow_html=True)
-st.markdown(render_chat_placeholder(), unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown(render_section("Processing Times"), unsafe_allow_html=True)
+
+st.markdown("""
+<div class="content-card">
+    <h3>Visa Processing Timeline</h3>
+    <p>J-1 visa processing times vary by US embassy or consulate location and exchange program category. The timeline typically includes:</p>
+    <ul>
+        <li><strong>Administrative processing:</strong> 2-10 weeks after interview in most cases</li>
+        <li><strong>Appointment wait times:</strong> Varies by country, from a few days to several months</li>
+        <li><strong>Summer work travel:</strong> Higher demand during spring months (March-May)</li>
+        <li><strong>Research scholars:</strong> May require additional administrative processing</li>
+    </ul>
+    <p style="margin-top:1rem;">Check current processing times and appointment availability at the embassy or consulate where you will apply.</p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown(render_source_citations([
+    {
+        "url": "https://travel.state.gov/content/travel/en/us-visas/visa-information-resources/international-traveler.html",
+        "title": "International Traveler - travel.state.gov",
+        "agency": "State Department",
+        "section": "Visa Wait Times",
+    },
+]), unsafe_allow_html=True)
 
 # -------------------------------------------------------
 # Footer
 # -------------------------------------------------------
 st.markdown(render_footer(), unsafe_allow_html=True)
+
+# Floating chat button
+render_floating_chat()

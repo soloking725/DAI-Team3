@@ -37,72 +37,37 @@ RETRY_COUNT = 3
 RETRY_DELAY = 2  # seconds between retries
 
 # Official government URLs to scrape (student visa focused)
+# Verified working with curl_cffi (impersonate="chrome")
 SOURCE_URLS = [
     {
-        "url": "https://travel.state.gov/content/travel/en/us-visas/study/apply-for-a-student-visa.html",
-        "title": "State Department - F-1 Student Visa Application",
+        "url": "https://travel.state.gov/content/travel/en/us-visas/study.html",
+        "title": "State Department - Study in the United States (F-1/M-1/J-1 Overview)",
         "agency": "State Department",
-        "visa_type": ["F-1"],
+        "visa_type": ["F-1", "M-1", "J-1"],
     },
     {
-        "url": "https://travel.state.gov/content/travel/en/us-visas/study/other-study-options/vocational-students.html",
-        "title": "State Department - M-1 Vocational Student Visa",
+        "url": "https://travel.state.gov/content/travel/en/us-visas.html",
+        "title": "State Department - US Visas Overview",
         "agency": "State Department",
-        "visa_type": ["M-1"],
+        "visa_type": ["F-1", "M-1", "J-1"],
     },
     {
-        "url": "https://travel.state.gov/content/travel/en/us-visas/study/exchange-visitor.html",
-        "title": "State Department - J-1 Exchange Visitor Program",
-        "agency": "State Department",
-        "visa_type": ["J-1"],
-    },
-    {
-        "url": "https://www.uscis.gov/international-students-academics",
-        "title": "USCIS - International Students and Academics",
+        "url": "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors",
+        "title": "USCIS - Students and Exchange Visitors",
         "agency": "USCIS",
         "visa_type": ["F-1", "J-1", "M-1"],
     },
     {
-        "url": "https://www.uscis.gov/j-exchange-visitor",
-        "title": "USCIS - J Exchange Visitor",
-        "agency": "USCIS",
-        "visa_type": ["J-1"],
-    },
-    {
-        "url": "https://www.uscis.gov/m-vocational-student",
-        "title": "USCIS - M Vocational Student",
-        "agency": "USCIS",
-        "visa_type": ["M-1"],
-    },
-    {
-        "url": "https://studyinthestates.dhs.gov/f-students",
-        "title": "SEVP - F-1 Student Regulations",
+        "url": "https://studyinthestates.dhs.gov/",
+        "title": "DHS/SEVP - Study in the States",
         "agency": "SEVP",
-        "visa_type": ["F-1"],
+        "visa_type": ["F-1", "M-1", "J-1"],
     },
     {
-        "url": "https://studyinthestates.dhs.gov/m-students",
-        "title": "SEVP - M-1 Student Regulations",
-        "agency": "SEVP",
-        "visa_type": ["M-1"],
-    },
-    {
-        "url": "https://www.uscis.gov/sites/default/files/document/fee_index/USCIS%20Fee%20Index%20-%20English.pdf",
-        "title": "USCIS Fee Index",
+        "url": "https://www.uscis.gov/",
+        "title": "USCIS - Homepage (Immigration Benefits)",
         "agency": "USCIS",
-        "visa_type": ["all"],
-    },
-    {
-        "url": "https://www.ssa.gov/foreign/immigrant/apply.html",
-        "title": "SSA - Applying for SSN as an Immigrant",
-        "agency": "SSA",
-        "visa_type": ["post-visa"],
-    },
-    {
-        "url": "https://www.irs.gov/individuals/international-taxes/nonresident-alien-individuals",
-        "title": "IRS - Nonresident Alien Tax Information",
-        "agency": "IRS",
-        "visa_type": ["post-visa"],
+        "visa_type": ["F-1", "J-1", "M-1"],
     },
 ]
 

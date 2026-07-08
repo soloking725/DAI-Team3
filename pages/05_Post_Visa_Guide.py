@@ -1,187 +1,182 @@
-"""
-Post-Arrival Guide for US Student Visa Holders.
-Page: 05_Post_Visa_Guide.py
-"""
+"""Post-Arrival Guide for international students."""
+
 import streamlit as st
-from shared.styles import get_global_css
-from shared.components import render_nav_bar, render_disclaimer, render_footer, render_card, render_source_citations, render_floating_chat
 
-# -------------------------------------------------------
-# Page config
-# -------------------------------------------------------
-st.set_page_config(
-    page_title="Post-Arrival Guide - US Student Visa Information Resource",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+from shared.components import (
+    render_card,
+    render_disclaimer,
+    render_floating_chat,
+    render_footer,
+    render_nav_bar,
+    render_section,
+    render_source_citations,
 )
+from shared.styles import get_global_css
 
-# Global CSS
+st.set_page_config(page_title="Post-Arrival Guide", page_icon=":book:", layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
-# -------------------------------------------------------
-# Navigation
-# -------------------------------------------------------
 render_nav_bar()
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
 
-# -------------------------------------------------------
-# Page header
-# -------------------------------------------------------
 st.markdown("""
-<div style="max-width:900px; margin:0 auto; padding:2rem 1rem 1rem;">
-    <h1 style="color:#1a365d; margin-bottom:0.5rem;">Post-Arrival Guide for Students</h1>
-    <p style="color:#4a5568; font-size:1.05rem; line-height:1.6;">
-        Steps to take after arriving in the US on a student visa: reporting to your school,
-        applying for a Social Security Number, opening a bank account, obtaining a state ID,
-        and understanding your tax obligations.
+<div style="max-width:1200px; margin:0 auto; padding:2rem 1rem 0;">
+    <h1 style="font-size:1.75rem; font-weight:700; color:#1a365d; margin:0 0 0.5rem;">
+        Post-Arrival Guide for International Students
+    </h1>
+    <p style="color:#4a5568; font-size:1rem; margin:0 0 2rem;">
+        Essential steps to complete after arriving in the US on a student visa.
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# Content sections
+# Reporting Requirements
 # -------------------------------------------------------
-content_max = '<div style="max-width:900px; margin:0 auto; padding:0 1rem;">'
+st.markdown(render_section("Reporting Requirements"), unsafe_allow_html=True)
 
-# Reporting to school
-content_max += render_card(
-    "Report to Your School (SEVP/DSO Reporting)",
-    """
-    <p>Upon arrival in the US, F-1 and M-1 students must report to their Designated School Official (DSO)
-    to activate their SEVIS record. J-1 students must report to their program sponsor or Responsible
-    Officer (RO).</p>
+st.markdown(render_card(
+    title="Arrival Reporting",
+    content_html="""
+    <p>After arriving in the US, you must report your arrival to your designated school official (DSO) or responsible officer (RO). Your school will update your SEVIS record with your arrival information.</p>
+    <p>Key reporting requirements include:</p>
     <ul>
-        <li>F-1/M-1: Report to your DSO within the first week of arriving, or by the date specified in your I-20. The DSO will update SEVIS with your arrival information and address.</li>
-        <li>J-1: Report to your program sponsor or RO within 30 days of arrival to verify your SEVIS record and address.</li>
-        <li>Keep your address updated with your DSO/RO at all times. You must report address changes within 10 days.</li>
-        <li>Carry your I-20 (or DS-2019) and passport at all times as proof of status.</li>
+        <li>Report arrival to your DSO within the first week of arriving in the US</li>
+        <li>Verify your address and contact information are correct in SEVIS</li>
+        <li>Register for classes and maintain full-time enrollment status</li>
+        <li>Report any changes to your address, phone number, or email within 10 days</li>
+        <li>Report any changes to your major, degree program, or completion date</li>
     </ul>
     """,
-)
+    link_text="SEVP Student Reporting Requirements",
+    link_href="https://studyinthestates.dhs.gov/f-students",
+), unsafe_allow_html=True)
 
+# -------------------------------------------------------
 # Social Security Number
-content_max += render_card(
-    "Social Security Number (SSN)",
-    """
-    <p>F-1 students with on-campus work authorization, CPT, or OPT approval can apply for an SSN
-    through the Social Security Administration. J-1 students with work authorization may also apply.</p>
+# -------------------------------------------------------
+st.markdown(render_section("Applying for a Social Security Number"), unsafe_allow_html=True)
+
+st.markdown(render_card(
+    title="Social Security Administration (SSA)",
+    content_html="""
+    <p>If you have an on-campus job offer or off-campus employment authorization, you may apply for a Social Security Number (SSN). You must apply in person at a local SSA office.</p>
+    <p>Required documents include:</p>
     <ul>
-        <li>Complete Form SS-5, Application for a Social Security Card</li>
-        <li>Bring your passport, visa, I-94 arrival record, and I-20 (or DS-2019)</li>
-        <li>F-1 students: bring a job offer letter from the university or an approved EAD (for CPT/OPT)</li>
-        <li>Visit a local Social Security Administration office in person</li>
-        <li>SSN cards are typically mailed within 7-14 business days</li>
-        <li>M-1 students are generally not eligible for an SSN during their program</li>
+        <li>Valid passport with current US visa</li>
+        <li>Form I-20 or DS-2019</li>
+        <li>Form I-94 arrival record</li>
+        <li>Job offer letter from employer showing on-campus employment or work authorization</li>
+        <li>Proof of US address (lease agreement, utility bill, or bank statement)</li>
+        <li>Two additional documents from the SSA acceptable documents list</li>
     </ul>
-    <div class="source-citation">
-        Source: <a href="https://www.ssa.gov" target="_blank">ssa.gov</a>
-    </div>
+    <p style="margin-top:1rem;">Note: You cannot apply for an SSN immediately upon arrival. Wait at least one week after arriving and only after receiving a job offer or work authorization.</p>
     """,
-)
+    link_text="SSA - Apply for an SSN",
+    link_href="https://www.ssa.gov/foreign/immigrant/apply.html",
+), unsafe_allow_html=True)
 
-# Opening a bank account
-content_max += render_card(
-    "Opening a Bank Account",
-    """
-    <p>Requirements vary by bank. Generally you will need:</p>
+st.markdown(render_source_citations([
+    {
+        "url": "https://www.ssa.gov/foreign/immigrant/apply.html",
+        "title": "Apply for an SSN - SSA",
+        "agency": "SSA",
+        "section": "SSN Application",
+    },
+]), unsafe_allow_html=True)
+
+# -------------------------------------------------------
+# Bank Account
+# -------------------------------------------------------
+st.markdown(render_section("Opening a Bank Account"), unsafe_allow_html=True)
+
+st.markdown(render_card(
+    title="US Bank Account",
+    content_html="""
+    <p>Opening a US bank account is highly recommended for managing your finances while studying in the US. Most banks require the following documents:</p>
     <ul>
-        <li>Valid passport with US student visa</li>
-        <li>I-20 or DS-2019 form</li>
-        <li>I-94 arrival record</li>
-        <li>SSN or ITIN (some banks accept an alternative such as your I-20 and passport)</li>
-        <li>Proof of address (utility bill, lease agreement, or school acceptance letter with US address)</li>
-        <li>Initial deposit (varies by bank)</li>
+        <li>Valid passport with US visa</li>
+        <li>Form I-20 or DS-2019</li>
+        <li>Form I-94 arrival record</li>
+        <li>Proof of US address</li>
+        <li>Initial deposit (amount varies by bank)</li>
     </ul>
-    <p>Some banks have specific programs for international students. Contact individual banks for their requirements.
-    Consider banks with branches near your campus for convenience.</p>
+    <p style="margin-top:1rem;">Many universities have partnerships with specific banks that offer student accounts with no minimum balance or monthly fees. Check with your school's international student office for recommendations.</p>
     """,
-)
+), unsafe_allow_html=True)
 
-# State ID / Driver's License
-content_max += render_card(
-    "State ID or Driver's License",
-    """
-    <p>Each state has its own requirements for issuing IDs and driver's licenses to student visa holders.
-    Generally you will need:</p>
+# -------------------------------------------------------
+# State ID and Driver's License
+# -------------------------------------------------------
+st.markdown(render_section("State ID and Driver's License"), unsafe_allow_html=True)
+
+st.markdown(render_card(
+    title="Department of Motor Vehicles (DMV)",
+    content_html="""
+    <p>You can apply for a state ID card or driver's license at your local Department of Motor Vehicles (DMV). Requirements vary by state but typically include:</p>
     <ul>
-        <li>Valid visa and I-94 record</li>
-        <li>I-20 or DS-2019 form as proof of student status</li>
-        <li>Proof of state residency (utility bill, lease, bank statement, school enrollment verification)</li>
-        <li>SSN or proof of SSN application</li>
-        <li>Passport</li>
-        <li>Pass the written test and vision test (for driver's license)</li>
-        <li>Pay the state fee</li>
+        <li>Valid passport with US visa</li>
+        <li>Form I-20 or DS-2019</li>
+        <li>Form I-94 arrival record</li>
+        <li>Proof of US address (two documents required in most states)</li>
+        <li>SSN or ITIN (if you have one)</li>
+        <li>Passport-style photograph</li>
+        <li>Completion of written and driving tests (for driver's license)</li>
     </ul>
-    <p>Contact your state's DMV for specific requirements. Some states accept an I-20 as proof of residency.</p>
+    <p style="margin-top:1rem;">Note: Some states allow you to apply for a state ID without an SSN, but most require an SSN or ITIN for a driver's license. Check your state DMV website for specific requirements.</p>
     """,
-)
+    link_text="USCIS - International Students and Academics",
+    link_href="https://www.uscis.gov/international-students-academics",
+), unsafe_allow_html=True)
 
-# Tax obligations
-content_max += render_card(
-    "Tax Obligations for International Students",
-    """
-    <p>Student visa holders are generally required to file federal and state tax returns, even if no US income was earned.</p>
+st.markdown(render_source_citations([
+    {
+        "url": "https://www.uscis.gov/international-students-academics",
+        "title": "International Students and Academics - USCIS",
+        "agency": "USCIS",
+        "section": "State ID Requirements",
+    },
+]), unsafe_allow_html=True)
+
+# -------------------------------------------------------
+# Tax Obligations
+# -------------------------------------------------------
+st.markdown(render_section("Tax Obligations"), unsafe_allow_html=True)
+
+st.markdown(render_card(
+    title="Internal Revenue Service (IRS)",
+    content_html="""
+    <p>International students on F-1 and J-1 visas are considered nonresident aliens for tax purposes during their first five years in the US. You must file tax returns if you:</p>
     <ul>
-        <li>File Form 1040-NR (Nonresident Alien Individual US Income Tax Return) for most nonresident students. After 5 calendar years, the substantial presence test may classify you as a resident alien for tax purposes, in which case you file Form 1040.</li>
-        <li>Report all US-source income including on-campus wages, research/teaching assistantships, and scholarships (portion that is not tuition).</li>
-        <li>Use your SSN or apply for an ITIN (Individual Taxpayer Identification Number) via Form W-7 if you do not have an SSN and have a filing obligation.</li>
-        <li>File state tax returns where applicable.</li>
-        <li>Treaty benefits: If your country has a tax treaty with the US, you may be eligible for exemptions or reductions. File Form 1040-NR with treaty claims as appropriate.</li>
-        <li>Deadlines: Federal and state tax returns are generally due by April 15 of the following year.</li>
+        <li>Received any income from US sources (on-campus work, assistantships, internships)</li>
+        <li>Received a scholarship, fellowship, or grant</li>
+        <li>Have US-source investment income (interest, dividends)</li>
     </ul>
-    <div class="source-citation">
-        Source: <a href="https://www.irs.gov/individuals/international-taxes/nonresident-alien-individuals" target="_blank">irs.gov - Nonresident Alien Tax Information</a>
-    </div>
-    """,
-)
-
-# Health insurance
-content_max += render_card(
-    "Health Insurance",
-    """
-    <p>Many US universities require international students to carry health insurance. Options include:</p>
+    <p style="margin-top:1rem;">Required forms include:</p>
     <ul>
-        <li>University-sponsored health insurance plan (often mandatory for the first year)</li>
-        <li>Private health insurance plans meeting university requirements</li>
-        <li>Some J-1 exchange programs include health insurance as part of the program</li>
+        <li><strong>Form 1040-NR</strong> - US Nonresident Alien Income Tax Return</li>
+        <li><strong>Form 8843</strong> - Explanation for Individual Unable to Meet the Substantial Presence Test</li>
+        <li><strong>W-7</strong> - Application for IRS Individual Taxpayer Identification Number (ITIN)</li>
     </ul>
-    <p>Check with your university's international student office for minimum coverage requirements. The Affordable
-    Care Act requires all individuals in the US to have minimum essential health coverage, though nonresident
-    aliens may qualify for a transitional relief exemption.</p>
+    <p style="margin-top:1rem;">Many universities offer free tax preparation services for international students during tax season. Check with your school's international student office.</p>
     """,
-)
+    link_text="IRS - Nonresident Alien Tax Information",
+    link_href="https://www.irs.gov/individuals/international-taxes/nonresident-alien-individuals",
+), unsafe_allow_html=True)
 
-# Important notes
-content_max += render_card(
-    "Important Notes",
-    """
-    <p>Requirements and procedures vary by state and by visa type. Always verify requirements
-    with the relevant state and federal agencies and your school's international student office.
-    This information is for general guidance only and does not constitute legal advice.</p>
-    <p>Key documents to keep organized:</p>
-    <ul>
-        <li>Passport with valid visa</li>
-        <li>I-20 (F-1/M-1) or DS-2019 (J-1) with latest DSO/RO signature</li>
-        <li>I-94 arrival record (available online at i94.cbp.dhs.gov)</li>
-        <li>SSN card (if applicable)</li>
-        <li>Financial documents and scholarship letters</li>
-        <li>State ID or driver's license</li>
-    </ul>
-    """,
-)
-
-# Sources
-content_max += render_source_citations([
-    {"title": "Social Security Administration - SSN for Immigrants", "url": "https://www.ssa.gov/foreign/immigrant/apply.html"},
-    {"title": "IRS - Nonresident Alien Tax Information", "url": "https://www.irs.gov/individuals/international-taxes/nonresident-alien-individuals"},
-    {"title": "USCIS - International Students", "url": "https://www.uscis.gov/international-students-academics"},
-    {"title": "CBP - I-94 Arrival/Departure Record", "url": "https://i94.cbp.dhs.gov"},
-])
-
-content_max += '</div>'
-st.markdown(content_max, unsafe_allow_html=True)
+st.markdown(render_source_citations([
+    {
+        "url": "https://www.irs.gov/individuals/international-taxes/nonresident-alien-individuals",
+        "title": "Nonresident Alien Individuals - IRS",
+        "agency": "IRS",
+        "section": "Tax Filing Requirements",
+    },
+]), unsafe_allow_html=True)
 
 # -------------------------------------------------------
 # Footer
 # -------------------------------------------------------
 st.markdown(render_footer(), unsafe_allow_html=True)
+
+# Floating chat button
+render_floating_chat()
