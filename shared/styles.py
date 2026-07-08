@@ -39,10 +39,27 @@ GLOBAL_CSS = """
     .top-nav {
         background-color: #1a365d;
         padding: 1rem 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
         border-bottom: 3px solid #2b6cb0;
+    }
+
+    .top-nav-brand-col {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Nav link row (st.page_link buttons) */
+    .stPageLink {
+        color: #cbd5e0 !important;
+        text-decoration: none !important;
+    }
+    
+    .stPageLink:hover {
+        color: #ffffff !important;
+    }
+
+    /* Nav link row container */
+    div[data-testid="stHorizontalBlock"] > div > div > p {
+        color: #cbd5e0;
     }
 
     .top-nav-brand {
@@ -205,6 +222,175 @@ GLOBAL_CSS = """
     /* Streamlit chat overrides */
     .stChatMessage {
         border-left: 3px solid #2b6cb0 !important;
+    }
+
+    /* Landing page hero section */
+    .hero {
+        text-align: center;
+        padding: 3rem 1rem 2rem;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .hero h1 {
+        font-size: 2.25rem;
+        font-weight: 700;
+        color: #1a365d;
+        margin-bottom: 0.75rem;
+        letter-spacing: -0.02em;
+    }
+
+    .hero p {
+        font-size: 1.1rem;
+        color: #4a5568;
+        line-height: 1.6;
+        max-width: 650px;
+        margin: 0 auto 2rem;
+    }
+
+    /* Visa type cards grid */
+    .visa-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+        max-width: 1200px;
+        margin: 0 auto 3rem;
+        padding: 0 1rem;
+    }
+
+    .visa-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 1.5rem;
+        transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .visa-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-color: #cbd5e0;
+    }
+
+    .visa-card h3 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #1a365d;
+        margin: 0 0 0.5rem;
+    }
+
+    .visa-card p {
+        font-size: 0.9rem;
+        color: #4a5568;
+        line-height: 1.5;
+        margin: 0 0 1rem;
+    }
+
+    .visa-card .card-link {
+        font-size: 0.875rem;
+        color: #2b6cb0;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .visa-card .card-link:hover {
+        text-decoration: underline;
+    }
+
+    /* Section title */
+    .section-title {
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #1a365d;
+        margin: 2.5rem 0 1.5rem;
+        max-width: 1200px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* Features section */
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        max-width: 1200px;
+        margin: 0 auto 3rem;
+        padding: 0 1rem;
+    }
+
+    .feature-item {
+        text-align: center;
+        padding: 1.25rem;
+    }
+
+    .feature-item h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a365d;
+        margin: 0 0 0.5rem;
+    }
+
+    .feature-item p {
+        font-size: 0.85rem;
+        color: #718096;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    /* Quick start section */
+    .quick-start-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+        max-width: 900px;
+        margin: 0 auto 3rem;
+        padding: 0 1rem;
+    }
+
+    .quick-start-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 1.25rem 1.5rem;
+    }
+
+    .quick-start-card h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a365d;
+        margin: 0 0 0.5rem;
+    }
+
+    .quick-start-card p {
+        font-size: 0.875rem;
+        color: #4a5568;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .visa-cards-grid {
+            grid-template-columns: 1fr;
+        }
+        .features-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .quick-start-grid {
+            grid-template-columns: 1fr;
+        }
+        .hero h1 {
+            font-size: 1.75rem;
+        }
+        .top-nav {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .top-nav-links {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
     }
 </style>
 """

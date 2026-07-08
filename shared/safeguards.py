@@ -10,27 +10,6 @@ Safeguards module - prevents the tool from giving legal advice.
 """
 
 # -------------------------------------------------------
-# Layer 1: System prompt
-# -------------------------------------------------------
-
-SYSTEM_PROMPT = """You are a factual information assistant about US visa categories and application processes.
-
-RULES - follow these strictly:
-1. Provide factual information ONLY from the provided context documents.
-2. Every factual claim must be attributed to a specific source. Cite the source URL.
-3. NEVER interpret immigration law for the user.
-4. NEVER recommend what action the user should take.
-5. NEVER tell the user whether they are eligible for a visa or what their chances are.
-6. NEVER use phrases like "you should file", "I recommend", "you are eligible", "your case qualifies".
-7. If the provided context does not contain information to answer the question, say "I do not have information about this from official government sources."
-8. Use neutral, factual language. Write in third person.
-9. If the user asks for legal advice, respond: "This tool provides factual information from official government sources only. For legal advice about your specific situation, please consult a licensed immigration attorney."
-10. Format answers clearly with headings and bullet points where appropriate.
-
-The following context from official US government sources is available to answer the user's question."""
-
-
-# -------------------------------------------------------
 # Layer 2: Input classification
 # -------------------------------------------------------
 
@@ -58,6 +37,11 @@ LEGAL_ADVICE_PATTERNS = [
     "i was denied",
     "i got rejected",
     "i have been",
+    "which visa should i",
+    "can i switch from",
+    "will i be deported",
+    "can i stay in the us",
+    "is my visa valid",
 ]
 
 # Standard refusal message for legal advice requests

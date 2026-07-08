@@ -9,7 +9,7 @@ import os
 from typing import Optional
 
 CHROMA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chroma_db")
-COLLECTION_NAME = "visa_documents"
+COLLECTION_NAME = "student_visa_documents"
 
 
 def retrieve_context(query, top_k=5, visa_type=None, distance_threshold=1.2):
@@ -19,7 +19,7 @@ def retrieve_context(query, top_k=5, visa_type=None, distance_threshold=1.2):
     Args:
         query: User's question string.
         top_k: Number of chunks to retrieve.
-        visa_type: Optional visa type filter (e.g., "H-1B", "I-129").
+        visa_type: Optional visa type filter (e.g., "F-1", "J-1", "M-1").
         distance_threshold: Maximum cosine distance to accept.
 
     Returns:

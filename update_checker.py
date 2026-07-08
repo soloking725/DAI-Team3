@@ -1,5 +1,5 @@
 """
-Update Checker - Hash-based content freshness monitoring.
+Update Checker - Hash-based content freshness monitoring for student visa sources.
 
 Periodically checks official government pages for changes.
 If content has changed, triggers re-ingestion.
@@ -16,12 +16,16 @@ from datetime import datetime
 
 CACHE_FILE = os.path.join(os.path.dirname(__file__), ".page_hashes_cache.json")
 
-# Pages to monitor for changes
+# Pages to monitor for changes (student visa focused)
 MONITORED_PAGES = [
-    "https://www.uscis.gov/i-129",
-    "https://www.uscis.gov/i-485",
-    "https://www.uscis.gov/h-1b",
-    "https://travel.state.gov/content/travel/en/us-visas.html",
+    "https://travel.state.gov/content/travel/en/us-visas/study/apply-for-a-student-visa.html",
+    "https://travel.state.gov/content/travel/en/us-visas/study/exchange-visitor.html",
+    "https://travel.state.gov/content/travel/en/us-visas/study/other-study-options/vocational-students.html",
+    "https://www.uscis.gov/international-students-academics",
+    "https://www.uscis.gov/j-exchange-visitor",
+    "https://www.uscis.gov/m-vocational-student",
+    "https://studyinthestates.dhs.gov/f-students",
+    "https://studyinthestates.dhs.gov/m-students",
 ]
 
 
@@ -63,7 +67,7 @@ def check_for_updates():
         list: URLs that have changed
     """
     print("=" * 60)
-    print("US Visa Information Resource - Update Checker")
+    print("US Student Visa Information Resource - Update Checker")
     print("=" * 60)
 
     cache = load_hash_cache()

@@ -2,17 +2,35 @@
 Shared UI components used across multiple pages.
 """
 
+import streamlit as st
 
-def render_nav_bar(title="US Visa Information Resource", subtitle="Official government information on US visa categories and processes"):
-    """Render the top navigation bar."""
-    return f"""
+
+def render_nav_bar(title="US Student Visa Information Resource", subtitle="Official government information on US student visa categories and processes"):
+    """Render the top navigation bar with working page links using Streamlit native navigation."""
+    # Brand
+    st.markdown(f"""
     <div class="top-nav">
-        <div>
+        <div class="top-nav-brand-col">
             <p class="top-nav-brand">{title}</p>
             <p class="top-nav-desc">{subtitle}</p>
         </div>
     </div>
-    """
+    """, unsafe_allow_html=True)
+
+    # Nav links using st.page_link (actually works)
+    nav_cols = st.columns(6)
+    with nav_cols[0]:
+        st.page_link("pages/01_F-1_Student_Visa.py", label="F-1", icon="🎓")
+    with nav_cols[1]:
+        st.page_link("pages/02_J-1_Exchange_Visitor.py", label="J-1", icon="🌍")
+    with nav_cols[2]:
+        st.page_link("pages/03_M-1_Vocational_Visa.py", label="M-1", icon="🔧")
+    with nav_cols[3]:
+        st.page_link("pages/04_Ask_a_Question.py", label="Ask a Question", icon="💬")
+    with nav_cols[4]:
+        st.page_link("pages/05_Post_Visa_Guide.py", label="Post-Arrival", icon="✈️")
+    with nav_cols[5]:
+        st.page_link("pages/06_About.py", label="About", icon="ℹ️")
 
 
 def render_disclaimer():
@@ -30,7 +48,7 @@ def render_footer():
     """Render the site footer."""
     return """
     <div class="site-footer">
-        <p><strong>US Visa Information Resource</strong></p>
+        <p><strong>US Student Visa Information Resource</strong></p>
         <p>
             This tool provides factual information from official US government sources.
             It does not provide legal advice. For legal advice about your specific situation,
@@ -95,7 +113,50 @@ def render_chat_placeholder():
     return """
     <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:2rem; text-align:center; margin-top:1.5rem;">
         <p style="color:#718096; font-size:0.95rem; margin:0;">
-            Chat feature will be available here. Configure your Qwen API key in .env to enable it.
+            Chat feature available on the Ask a Question page. Configure your Qwen API key in .env to enable it.
         </p>
     </div>
     """
+
+
+def render_floating_chat():
+    """Render a floating chat button in the bottom-right corner accessible from any page.
+
+    Uses a Streamlit page_link styled with CSS to look like a floating button.
+    Place this at the bottom of each page.
+    """
+    st.markdown("""
+    <style>
+        .floating-chat-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+        }
+        .floating-chat-container > div {
+            background: #1a365d !important;
+            border-radius: 50px !important;
+            box-shadow: 0 4px 16px rgba(26, 54, 93, 0.4) !important;
+            transition: all 0.2s ease !important;
+            padding: 0.6rem 1.25rem !important;
+            border: none !important;
+        }
+        .floating-chat-container > div:hover {
+            background: #2b6cb0 !important;
+            box-shadow: 0 6px 20px rgba(26, 54, 93, 0.5) !important;
+            transform: translateY(-1px);
+        }
+        .floating-chat-container p {
+            color: white !important;
+            font-weight: 600 !important;
+            font-size: 0.9rem !important;
+            margin: 0 !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # The actual clickable navigation — uses Streamlit native page_link
+    st.markdown('<div class="floating-chat-container">', unsafe_allow_html=True)
+    st.page_link("pages/04_Ask_a_Question.py", label="💬 Ask a Question")
+    st.markdown('</div>', unsafe_allow_html=True)
