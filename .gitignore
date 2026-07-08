@@ -24,5 +24,11 @@ Thumbs.db
 # Streamlit
 .streamlit/
 
+# ChromaDB
+chroma_db/
+
+# Environment variables
+.env
+
 # Generated exports
 *_itinerary.*
