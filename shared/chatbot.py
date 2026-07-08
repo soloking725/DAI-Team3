@@ -38,6 +38,7 @@ RULES - follow these strictly:
 9. If the user asks for legal advice, respond: "This tool provides factual information from official government sources only. For legal advice about your specific situation, please consult a licensed immigration attorney."
 10. Format answers clearly with headings and bullet points where appropriate.
 11. Focus on F-1, J-1, and M-1 student visa categories.
+12. Do not show your reasoning, thinking process, or chain of thought. Provide only the final answer to the user's question.
 
 The following context from official US government sources is available to answer the user's question."""
 

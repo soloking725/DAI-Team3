@@ -7,8 +7,8 @@ import streamlit as st
 
 def render_nav_bar(title="US Student Visa Information Resource", subtitle="Official government information on US student visa categories and processes"):
     """Render the top navigation bar with working page links using Streamlit native navigation."""
-    # Brand
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <div class="top-nav">
         <div class="top-nav-inner">
             <div class="top-nav-brand-col">
@@ -16,17 +16,34 @@ def render_nav_bar(title="US Student Visa Information Resource", subtitle="Offic
                 <p class="top-nav-desc">{subtitle}</p>
             </div>
             <div class="top-nav-links">
-                <a href="/" class="nav-link">Home</a>
-                <a href="/01_F-1_Student_Visa" class="nav-link">F-1</a>
-                <a href="/02_J-1_Exchange_Visitor" class="nav-link">J-1</a>
-                <a href="/03_M-1_Vocational_Visa" class="nav-link">M-1</a>
-                <a href="/04_Ask_a_Question" class="nav-link">Ask a Question</a>
-                <a href="/05_Post_Visa_Guide" class="nav-link">Post-Arrival</a>
-                <a href="/06_About" class="nav-link">About</a>
+            """,
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+    with c1:
+        st.page_link("app.py", label="Home")
+    with c2:
+        st.page_link("pages/01_F-1_Student_Visa.py", label="F-1")
+    with c3:
+        st.page_link("pages/02_J-1_Exchange_Visitor.py", label="J-1")
+    with c4:
+        st.page_link("pages/03_M-1_Vocational_Visa.py", label="M-1")
+    with c5:
+        st.page_link("pages/04_Ask_a_Question.py", label="Ask a Question")
+    with c6:
+        st.page_link("pages/05_Post_Visa_Guide.py", label="Post-Arrival")
+    with c7:
+        st.page_link("pages/06_About.py", label="About")
+
+    st.markdown(
+        """
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_disclaimer():

@@ -4,7 +4,7 @@ Page: 04_Ask_a_Question.py
 """
 import streamlit as st
 from shared.styles import get_global_css
-from shared.components import render_nav_bar, render_disclaimer, render_footer, render_floating_chat
+from shared.components import render_nav_bar, render_disclaimer, render_footer
 from shared.retrieval import retrieve_context
 from shared.safeguards import classify_input, filter_output, check_confidence, LEGAL_ADVICE_REFUSAL
 from shared.chatbot import call_qwen_api, check_api_configured
@@ -28,7 +28,7 @@ render_nav_bar()
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# Custom chat CSS
+# Custom chat CSS + JavaScript
 # -------------------------------------------------------
 st.markdown("""
 <style>
@@ -75,6 +75,24 @@ st.markdown("""
         border-radius: 4px;
     }
 </style>
+<script>
+(function() {
+    setTimeout(function() {
+        var inputs = document.querySelectorAll('input[type="text"]');
+        var buttons = Array.from(document.querySelectorAll('button'));
+        var chatInput = inputs[inputs.length - 1];
+        var sendBtn = buttons.find(function(b) { return b.textContent.includes('Send'); });
+        if (chatInput && sendBtn) {
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendBtn.click();
+                }
+            });
+        }
+    }, 300);
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
@@ -112,81 +130,8 @@ if "chat_history" not in st.session_state:
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 
-# Handle search query from landing page
-if st.session_state.get("chat_query") and not st.session_state.chat_history:
-    # Auto-submit the query from the landing page
-    question = st.session_state.chat_query
-    st.session_state.chat_query = ""  # Clear it so it doesn't re-submit
-
-    # Layer 2: Input classification
-    is_legal, flagged = classify_input(question)
-
-    if is_legal:
-        st.session_state.chat_history.append({
-            "role": "user",
-            "content": question,
-        })
-        st.session_state.chat_history.append({
-            "role": "assistant",
-            "content": LEGAL_ADVICE_REFUSAL,
-            "warnings": [f"Question detected as seeking legal advice. Flagged patterns: {', '.join(flagged)}"],
-            "sources": [],
-        })
-        st.session_state.conversation_history.append({"role": "user", "content": question})
-        st.rerun()
-    else:
-        # Retrieve context
-        visatype_filter = None if visa_type == "All categories" else visa_type
-        retrieval_result = retrieve_context(
-            query=question,
-            top_k=5,
-            visa_type=visatype_filter,
-            distance_threshold=1.2,
-        )
-
-        context = retrieval_result.get("context", "")
-        sources = retrieval_result.get("sources", [])
-        distances = retrieval_result.get("distances", [])
-
-        # Layer 4: Confidence gate
-        if not check_confidence(distances):
-            st.session_state.chat_history.append({
-                "role": "user",
-                "content": question,
-            })
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": "I do not have information about this from official government sources. Please try rephrasing your question or consult a licensed immigration attorney for advice on your specific situation.",
-                "warnings": ["Low confidence: no relevant official sources found."],
-                "sources": [],
-            })
-            st.rerun()
-        else:
-            # Call Qwen API
-            with st.spinner("Searching official sources..."):
-                api_result = call_qwen_api(
-                    user_message=question,
-                    context=context,
-                    history=st.session_state.conversation_history[-10:],
-                )
-
-                # Layer 3: Output filtering
-                response_text = api_result["response"]
-                filtered_text, warnings = filter_output(response_text)
-
-                st.session_state.chat_history.append({
-                    "role": "user",
-                    "content": question,
-                })
-                st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "content": filtered_text,
-                    "warnings": warnings,
-                    "sources": sources,
-                })
-                st.session_state.conversation_history.append({"role": "user", "content": question})
-                st.session_state.conversation_history.append({"role": "assistant", "content": filtered_text})
-                st.rerun()
+# Handle search query from landing page - prefill input instead of auto-submitting
+landing_query = st.session_state.pop("chat_query", "")
 
 # -------------------------------------------------------
 # Chat history display
@@ -242,6 +187,7 @@ st.markdown('<div class="chat-input-area">', unsafe_allow_html=True)
 
 user_input = st.text_input(
     "Your question",
+    value=landing_query,
     placeholder="e.g., What documents do I need for an F-1 visa interview?",
     key="chat_input",
     label_visibility="collapsed",
@@ -337,8 +283,6 @@ if send_button and user_input.strip():
         st.session_state.conversation_history.append({"role": "user", "content": question})
         st.session_state.conversation_history.append({"role": "assistant", "content": filtered_text})
 
-        # Clear input and rerun
-        st.session_state.chat_input = ""
         st.rerun()
 
 st.markdown('</div>', unsafe_allow_html=True)

@@ -99,6 +99,35 @@ GLOBAL_CSS = """
         background-color: rgba(255, 255, 255, 0.1);
     }
 
+    /* Style st.page_link buttons in nav to look like text links */
+    .top-nav .stPageLink {
+        color: #cbd5e0 !important;
+        text-decoration: none !important;
+        font-size: 0.85rem;
+        font-weight: 500;
+        padding: 0.4rem 0.85rem;
+        border-radius: 4px;
+        transition: all 0.15s ease;
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .top-nav .stPageLink:hover {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .top-nav .stPageLink p {
+        color: inherit !important;
+        font-size: 0.85rem;
+    }
+
+    .top-nav .stPageLink[aria-current="page"] {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.15) !important;
+    }
+
     /* Disclaimer banner */
     .disclaimer-banner {
         background-color: #fffbeb;
