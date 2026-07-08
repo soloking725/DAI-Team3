@@ -262,11 +262,11 @@ if clear_button:
 if send_button and user_input.strip():
     question = user_input.strip()
 
-    # Layer 2: Input classification — detect legal advice requests
+    # Layer 2: Input classification: detect legal advice requests
     is_legal, flagged = classify_input(question)
 
     if is_legal:
-        # BLOCK: Return refusal — do NOT proceed to retrieval or API call
+        # BLOCK: Return refusal, do NOT proceed to retrieval or API call
         st.session_state.chat_history.append({
             "role": "user",
             "content": question,
@@ -293,7 +293,7 @@ if send_button and user_input.strip():
         sources = retrieval_result.get("sources", [])
         distances = retrieval_result.get("distances", [])
 
-        # Layer 4: Confidence gate — refuse if no relevant sources found
+        # Layer 4: Confidence gate: refuse if no relevant sources found
         if not check_confidence(distances):
             st.session_state.chat_history.append({
                 "role": "user",
@@ -315,7 +315,7 @@ if send_button and user_input.strip():
                 history=st.session_state.conversation_history[-10:],  # Last 10 messages
             )
 
-        # Layer 3: Output filtering — scan for advice patterns, append warnings
+        # Layer 3: Output filtering: scan for advice patterns, append warnings
         response_text = api_result["response"]
         filtered_text, warnings = filter_output(response_text)
 
