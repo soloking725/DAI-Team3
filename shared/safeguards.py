@@ -9,6 +9,20 @@ Safeguards module - prevents the tool from giving legal advice.
 5. Persistent disclaimers (always visible in UI)
 """
 
+import logging
+import re
+
+from shared.config import (
+    CONFIDENCE_THRESHOLD,
+    LEGAL_ADVICE_REFUSAL,
+    LEGAL_MATCH_THRESHOLD,
+)
+
+# Visa type keywords for fallback activation
+VISA_KEYWORDS = ["f-1", "j-1", "m-1", "f1", "j1", "m1", "student visa", "exchange visa"]
+
+logger = logging.getLogger(__name__)
+
 # -------------------------------------------------------
 # Layer 2: Input classification
 # -------------------------------------------------------
@@ -43,15 +57,6 @@ LEGAL_ADVICE_PATTERNS = [
     "can i stay in the us",
     "is my visa valid",
 ]
-
-# Standard refusal message for legal advice requests
-LEGAL_ADVICE_REFUSAL = (
-    "This tool provides factual information from official US government sources only. "
-    "It cannot provide legal advice or evaluate individual cases. "
-    "For legal advice about your specific situation, please consult a licensed immigration attorney. "
-    "You can find attorneys through the American Immigration Lawyers Association at "
-    "https://www.aila.org/find-an-attorney."
-)
 
 
 def classify_input(user_query):
@@ -135,3 +140,92 @@ def check_confidence(distances):
 
     best_distance = min(distances)
     return best_distance < CONFIDENCE_THRESHOLD
+
+
+# -------------------------------------------------------
+# Layer 5: Chain-of-thought stripping + Visa keyword detection
+# -------------------------------------------------------
+
+def strip_thinking(response_text):
+    """
+    Strip obvious chain-of-thought containers from LLM responses.
+    Conservative approach — only removes clearly-marked thinking blocks
+    to avoid stripping legitimate response content.
+
+    Args:
+        response_text: raw LLM response
+
+    Returns:
+        str: cleaned response with thinking containers removed
+    """
+    cleaned = response_text
+
+    # 1. Strip <think>...</think> tags (some models use XML-style thinking tags)
+    cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
+
+    # 2. Strip labeled thinking blocks that are clearly meta-reasoning.
+    #    Only matches sections explicitly labeled as thinking/analysis.
+    #    Uses conservative pattern: label + colon, then content until next
+    #    double-newline section. Does NOT match normal conversational language.
+    labeled_thinking = [
+        r'(?:^|\n\n)Thinking Process:\s*\n.*?(?=\n\n[A-Z]|\Z)',
+        r'(?:^|\n\n)Chain of Thought:\s*\n.*?(?=\n\n[A-Z]|\Z)',
+        r'(?:^|\n\n)Self-Correction:\s*\n.*?(?=\n\n[A-Z]|\Z)',
+        r'(?:^|\n\n)Check Against Rules:\s*\n.*?(?=\n\n[A-Z]|\Z)',
+        r'(?:^|\n\n)Internal Reasoning:\s*\n.*?(?=\n\n[A-Z]|\Z)',
+    ]
+
+    for pattern in labeled_thinking:
+        cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+
+    # Clean up extra blank lines and leading/trailing whitespace
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned).strip()
+
+    if cleaned != response_text:
+        logger.info("Stripped chain-of-thought content from LLM response")
+
+    return cleaned
+
+
+def has_visa_keyword(text):
+    """
+    Detect if text contains visa type keywords.
+    Enables fallback activation when semantic retrieval fails.
+
+    Args:
+        text: user query text
+
+    Returns:
+        bool: True if any visa keyword is found
+    """
+    if not text:
+        return False
+    text_lower = text.lower()
+    for kw in VISA_KEYWORDS:
+        if kw in text_lower:
+            return True
+    return False
+
+
+def extract_visa_type(text):
+    """
+    Extract visa type from user query text.
+    Returns canonical visa type for targeted retrieval.
+
+    Args:
+        text: user query text
+
+    Returns:
+        str: canonical visa type ('f-1', 'j-1', 'm-1') or None
+    """
+    if not text:
+        return None
+    text_lower = text.lower()
+    # Check for explicit visa type mentions
+    if 'f-1' in text_lower or 'f1' in text_lower:
+        return 'f-1'
+    if 'j-1' in text_lower or 'j1' in text_lower:
+        return 'j-1'
+    if 'm-1' in text_lower or 'm1' in text_lower:
+        return 'm-1'
+    return None

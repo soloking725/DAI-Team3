@@ -11,6 +11,14 @@ GLOBAL_CSS = """
     header { visibility: hidden; }
     .stDeployButton { display: none; }
 
+    /* Body background: prevents flash on navigation */
+    body {
+        background-color: #f8f9fa !important;
+    }
+    [data-testid="stAppViewContainer"] {
+        background-color: #f8f9fa;
+    }
+
     /* Layout reset */
     .block-container {
         padding-top: 0rem;

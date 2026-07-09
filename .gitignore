@@ -1,34 +1,34 @@
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-dist/
-build/
-*.egg
-
-# Virtual environment
+*.so
+.Python
 venv/
-env/
 .venv/
+
+# Virtualfish (for fish users)
+.my-python-packages
+
+# Environments
+.env
+.env.local
+.env.*.local
+
+# ChromaDB
+chroma_db/
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Streamlit
-.streamlit/
+# Jupyter
+.ipynb_checkpoints/
 
-# ChromaDB
-chroma_db/
-
-# Environment variables
-.env
-
-# Generated exports
-*_itinerary.*
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/

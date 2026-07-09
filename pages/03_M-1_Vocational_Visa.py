@@ -148,7 +148,7 @@ st.markdown("""
     <h3>Step-by-Step Process</h3>
     <ol style="padding-left:1.5rem; margin:0.5rem 0;">
         <li style="margin-bottom:0.75rem;"><strong>Get your Form I-20</strong> - Your SEVP-approved vocational school issues this after you accept an offer of admission and provide financial documents.</li>
-        <li style="margin-bottom:0.75rem;"><strong>Pay the SEVIS I-901 fee</strong> - Pay the $220 SEVIS fee online at fm.jfs.swIFT.gov and keep the receipt.</li>
+        <li style="margin-bottom:0.75rem;"><strong>Pay the SEVIS I-901 fee</strong> - Pay the $220 SEVIS fee online at fmjfee.gov and keep the receipt.</li>
         <li style="margin-bottom:0.75rem;"><strong>Complete the DS-160</strong> - Fill out the online nonimmigrant visa application at ceac.state.gov and print the confirmation page.</li>
         <li style="margin-bottom:0.75rem;"><strong>Pay the visa application fee</strong> - Pay the $185 MRV fee and keep the receipt. Some countries also require a reciprocity fee.</li>
         <li style="margin-bottom:0.75rem;"><strong>Schedule your interview</strong> - Book a visa interview appointment at the nearest US embassy or consulate. Appointment wait times vary by location.</li>

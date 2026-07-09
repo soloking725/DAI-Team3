@@ -2,9 +2,20 @@
 US Student Visa Information Resource
 Landing page - app.py
 """
+import logging
 import streamlit as st
 from shared.styles import get_global_css
 from shared.components import render_nav_bar, render_disclaimer, render_footer, render_floating_chat
+
+# -------------------------------------------------------
+# Logging setup
+# -------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler()],
+)
+logger = logging.getLogger(__name__)
 
 # -------------------------------------------------------
 # Page config
@@ -42,7 +53,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# Quick search widget
+# Quick search widget (using st.form for reliable submission)
 # -------------------------------------------------------
 st.markdown("""
 <style>
@@ -56,28 +67,21 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Initialize session state for search query passing
-if "chat_query" not in st.session_state:
-    st.session_state.chat_query = ""
+with st.form("search_form", clear_on_submit=True):
+    search_col1, search_col2 = st.columns([5, 1])
+    with search_col1:
+        search_input = st.text_input(
+            "Ask a visa question",
+            placeholder='e.g., What documents do I need for an F-1 visa interview?',
+            key="landing_search",
+            label_visibility="collapsed",
+        )
+    with search_col2:
+        search_btn = st.form_submit_button("Search", type="primary", use_container_width=True)
 
-search_col1, search_col2 = st.columns([5, 1])
-with search_col1:
-    search_input = st.text_input(
-        "Ask a visa question",
-        placeholder='e.g., What documents do I need for an F-1 visa interview?',
-        key="landing_search",
-        label_visibility="collapsed",
-    )
-with search_col2:
-    search_btn = st.button("Search", type="primary", use_container_width=True)
-
-if search_btn and search_input.strip():
-    st.session_state.chat_query = search_input.strip()
-    st.switch_page("pages/04_Ask_a_Question.py")
-
-# Also handle Enter key submission
-if st.session_state.get("chat_query") and st.session_state.get("from_landing"):
-    st.switch_page("pages/04_Ask_a_Question.py")
+    if search_btn and search_input and search_input.strip():
+        st.session_state.chat_query = search_input.strip()
+        st.switch_page("pages/04_Ask_a_Question.py")
 
 # -------------------------------------------------------
 # Student visa type cards

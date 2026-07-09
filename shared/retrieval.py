@@ -5,14 +5,40 @@ Queries ChromaDB for relevant context chunks and returns
 concatenated context string with source metadata for citation.
 """
 
-import os
+import logging
 from typing import Optional
 
-CHROMA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chroma_db")
-COLLECTION_NAME = "student_visa_documents"
+import chromadb
+
+from shared.config import (
+    CHROMA_PATH,
+    COLLECTION_NAME,
+    DEFAULT_TOP_K,
+    DISTANCE_THRESHOLD,
+)
+
+logger = logging.getLogger(__name__)
+
+# Module-level cached client — created once, reused across all calls
+_chroma_client = None
+_chroma_collection = None
 
 
-def retrieve_context(query, top_k=5, visa_type=None, distance_threshold=1.2):
+def _get_collection():
+    """Lazily initialize and return the ChromaDB collection (cached)."""
+    global _chroma_client, _chroma_collection
+    if _chroma_collection is None:
+        _chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
+        _chroma_collection = _chroma_client.get_or_create_collection(name=COLLECTION_NAME)
+    return _chroma_collection
+
+
+def retrieve_context(
+    query: str,
+    top_k: int = DEFAULT_TOP_K,
+    visa_type: Optional[str] = None,
+    distance_threshold: float = DISTANCE_THRESHOLD,
+) -> dict:
     """
     Query ChromaDB for relevant context chunks.
 
@@ -23,18 +49,15 @@ def retrieve_context(query, top_k=5, visa_type=None, distance_threshold=1.2):
         distance_threshold: Maximum cosine distance to accept.
 
     Returns:
-        dict: {
-            "context": str - concatenated context text,
-            "sources": list[dict] - source metadata with URLs,
-            "distances": list[float] - cosine distances,
-            "found": bool - whether any results were found
-        }
+        dict with keys:
+            - context (str): Concatenated context text.
+            - sources (list[dict]): Source metadata with URLs.
+            - distances (list[float]): Cosine distances.
+            - found (bool): Whether any results were found.
+            - error (str, optional): Error message if retrieval failed.
     """
     try:
-        import chromadb
-
-        client = chromadb.PersistentClient(path=CHROMA_PATH)
-        collection = client.get_or_create_collection(name=COLLECTION_NAME)
+        collection = _get_collection()
 
         # If visa_type is specified, include it in the query for better filtering
         search_query = f"{query} {visa_type}" if visa_type else query
@@ -60,29 +83,40 @@ def retrieve_context(query, top_k=5, visa_type=None, distance_threshold=1.2):
                 filtered_distances.append(dist)
                 filtered_metadata.append(metadatas[i])
 
+        logger.info(
+            "Retrieved %d chunks (threshold %.2f) for query: %s",
+            len(filtered_docs),
+            distance_threshold,
+            query[:60],
+        )
+
         # Build context string
         context_parts = []
         for i, doc in enumerate(filtered_docs):
             meta = filtered_metadata[i] or {}
             source_label = meta.get("source_url", "Unknown source")
             section = meta.get("section", "")
-            context_parts.append(f"[Source: {source_label} | Section: {section}]\n{doc}")
+            context_parts.append(
+                f"[Source: {source_label} | Section: {section}]\n{doc}"
+            )
 
         context = "\n\n---\n\n".join(context_parts)
 
         # Build sources list
         sources = []
-        seen_urls = set()
+        seen_urls: set[str] = set()
         for meta in filtered_metadata:
             if meta and meta.get("source_url"):
                 url = meta["source_url"]
                 if url not in seen_urls:
-                    sources.append({
-                        "url": url,
-                        "title": meta.get("title", "Official Source"),
-                        "agency": meta.get("agency", "USCIS"),
-                        "section": meta.get("section", ""),
-                    })
+                    sources.append(
+                        {
+                            "url": url,
+                            "title": meta.get("title", "Official Source"),
+                            "agency": meta.get("agency", "USCIS"),
+                            "section": meta.get("section", ""),
+                        }
+                    )
                     seen_urls.add(url)
 
         return {
@@ -93,7 +127,7 @@ def retrieve_context(query, top_k=5, visa_type=None, distance_threshold=1.2):
         }
 
     except Exception as e:
-        # If ChromaDB is not set up yet, return empty
+        logger.error("ChromaDB retrieval failed: %s", e, exc_info=True)
         return {
             "context": "",
             "sources": [],

@@ -84,13 +84,14 @@ def render_section(title):
 def render_card(title, content_html, link_text=None, link_href="#"):
     """Render a visa info card."""
     link_html = f'<a href="{link_href}" class="card-link">{link_text}</a>' if link_text else ""
-    return f"""
-    <div class="content-card">
-        <h3>{title}</h3>
-        {content_html}
-        {link_html}
-    </div>
-    """
+    # Strip leading/trailing whitespace to prevent Streamlit rendering raw text
+    return (
+        f'<div class="content-card">'
+        f'<h3>{title}</h3>'
+        f'{content_html}'
+        f'{link_html}'
+        f'</div>'
+    ).strip()
 
 
 def render_source_citations(sources):
@@ -112,22 +113,6 @@ def render_source_citations(sources):
         <ul style="margin:0.5rem 0 0; padding-left:1.25rem;">
             {''.join(items)}
         </ul>
-    </div>
-    """
-
-
-def render_coming_soon(feature_name):
-    """Render a 'coming soon' placeholder."""
-    return f'<div class="coming-soon">{feature_name} - Coming soon</div>'
-
-
-def render_chat_placeholder():
-    """Render a placeholder for the chat feature."""
-    return """
-    <div style="background:white; border:1px solid #e2e8f0; border-radius:6px; padding:2rem; text-align:center; margin-top:1.5rem;">
-        <p style="color:#718096; font-size:0.95rem; margin:0;">
-            Chat feature available on the Ask a Question page. Configure your Qwen API key in .env to enable it.
-        </p>
     </div>
     """
 
