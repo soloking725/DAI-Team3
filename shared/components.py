@@ -117,44 +117,96 @@ def render_source_citations(sources):
     """
 
 
-def render_floating_chat():
-    """Render a floating chat button in the bottom-right corner accessible from any page.
+_VISA_TYPE_PAGES = {
+    "f-1": "pages/01_F-1_Student_Visa.py",
+    "j-1": "pages/02_J-1_Exchange_Visitor.py",
+    "m-1": "pages/03_M-1_Vocational_Visa.py",
+}
 
-    Uses a Streamlit page_link styled with CSS to look like a floating button.
-    Place this at the bottom of each page.
+HAMBURGER_CSS = """
+<style>
+    div[data-testid="stPopover"] button {
+        width:32px !important; height:32px !important; padding:0 !important;
+        border-radius:var(--radius) !important; border:0.5px solid var(--border) !important;
+    }
+    .st-key-vera_brand_link p {
+        font-size: 22px !important;
+        font-weight: 700 !important;
+        color: var(--text-accent) !important;
+    }
+</style>
+"""
+
+
+def render_hamburger_menu(visa_type: str = "f-1"):
+    """Render the top-left hamburger menu: Your Timeline, Home, Forms, Info, Help, Settings, Privacy.
+
+    "Vera" itself is a clickable brand link back to the timeline, so there's
+    always a way back to the chat+timeline screen from anywhere on the site.
     """
-    st.markdown("""
-    <style>
-        .floating-chat-container {
-            position: fixed;
-            bottom: 1.5rem;
-            right: 1.5rem;
-            z-index: 9999;
-        }
-        .floating-chat-container > div {
-            background: #1a365d !important;
-            border-radius: 50px !important;
-            box-shadow: 0 4px 16px rgba(26, 54, 93, 0.4) !important;
-            transition: all 0.2s ease !important;
-            padding: 0.6rem 1.25rem !important;
-            border: none !important;
-        }
-        .floating-chat-container > div:hover {
-            background: #2b6cb0 !important;
-            box-shadow: 0 6px 20px rgba(26, 54, 93, 0.5) !important;
-            transform: translateY(-1px);
-        }
-        .floating-chat-container p {
-            color: white !important;
-            font-weight: 600 !important;
-            font-size: 0.9rem !important;
-            margin: 0 !important;
-            font-family: 'Inter', sans-serif !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown(HAMBURGER_CSS, unsafe_allow_html=True)
 
-    # The actual clickable navigation uses Streamlit native page_link
-    st.markdown('<div class="floating-chat-container">', unsafe_allow_html=True)
-    st.page_link("pages/04_Ask_a_Question.py", label="Ask a Question")
-    st.markdown('</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns([1, 11], vertical_alignment="center")
+    with col1:
+        with st.popover("☰"):
+            st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")
+            st.page_link("app.py", label="Home", icon=":material/home:")
+            st.divider()
+            st.page_link(
+                _VISA_TYPE_PAGES.get(visa_type, _VISA_TYPE_PAGES["f-1"]),
+                label="Forms",
+                icon=":material/description:",
+            )
+            st.page_link("pages/06_About.py", label="Info", icon=":material/info:")
+            st.page_link(
+                "pages/13_Help_Find_a_Lawyer.py",
+                label="Help (find a lawyer)",
+                icon=":material/balance:",
+            )
+            st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
+            st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
+    with col2:
+        with st.container(key="vera_brand_link"):
+            st.page_link("pages/04_Ask_a_Question.py", label="Vera")
+
+
+FLOATING_CHAT_CSS = """
+<style>
+    div.st-key-vera_floating_chat {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 9999;
+    }
+    div.st-key-vera_floating_chat button {
+        width: 56px !important;
+        height: 56px !important;
+        border-radius: 50% !important;
+        background: var(--fill-primary) !important;
+        color: var(--on-primary) !important;
+        font-size: 22px !important;
+        border: none !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+        transition: transform 0.15s ease !important;
+    }
+    div.st-key-vera_floating_chat button:hover {
+        transform: translateY(-2px);
+    }
+    div.st-key-vera_floating_chat [data-testid="stPopoverBody"] {
+        width: 320px !important;
+        max-width: 90vw !important;
+    }
+</style>
+"""
+
+
+def render_floating_chat():
+    """Render a real, usable Vera chat widget in a floating bottom-right popover,
+    accessible from any page without navigating away. Requires shared/theme.py's
+    get_vera_css() to already be loaded on the page (for icons + color tokens).
+    """
+    from shared.chat_panel import render_chat_panel
+
+    st.markdown(FLOATING_CHAT_CSS, unsafe_allow_html=True)
+    with st.popover("💬", key="vera_floating_chat"):
+        render_chat_panel()

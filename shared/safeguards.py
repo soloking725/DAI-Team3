@@ -160,6 +160,16 @@ def strip_thinking(response_text):
     """
     cleaned = response_text
 
+    # 0. Primary mechanism: the system prompt requires a literal "FINAL ANSWER:"
+    #    marker line separating private reasoning from the visible response.
+    #    This doesn't depend on the model remembering to open/close a tag —
+    #    if the marker is present, everything before it (however it's shaped)
+    #    is discarded. Split on the LAST occurrence in case the reasoning
+    #    itself mentions the marker name while planning to use it.
+    marker_matches = list(re.finditer(r'FINAL ANSWER:\s*\n?', cleaned, flags=re.IGNORECASE))
+    if marker_matches:
+        cleaned = cleaned[marker_matches[-1].end():]
+
     # 1. Strip <think>...</think> tags (some models use XML-style thinking tags)
     cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
 

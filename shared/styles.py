@@ -36,7 +36,7 @@ GLOBAL_CSS = """
 
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        color: #1a365d;
+        color: #166534;
     }
 
     p, span, label {
@@ -156,7 +156,7 @@ GLOBAL_CSS = """
     .visa-card {
         background: white;
         border: 1px solid #e2e8f0;
-        border-radius: 6px;
+        border-radius: 12px;
         padding: 1.5rem;
         transition: box-shadow 0.2s ease;
     }
@@ -168,7 +168,7 @@ GLOBAL_CSS = """
     .visa-card h3 {
         font-size: 1.125rem;
         font-weight: 600;
-        color: #1a365d;
+        color: #166534;
         margin: 0 0 0.5rem;
     }
 
@@ -183,7 +183,7 @@ GLOBAL_CSS = """
     .section-title {
         font-size: 1.5rem;
         font-weight: 600;
-        color: #1a365d;
+        color: #166534;
         margin: 2.5rem 0 1.5rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #e2e8f0;
@@ -193,7 +193,7 @@ GLOBAL_CSS = """
     .content-card {
         background: white;
         border: 1px solid #e2e8f0;
-        border-radius: 6px;
+        border-radius: 12px;
         padding: 1.5rem 2rem;
         margin-bottom: 1.25rem;
     }
@@ -201,7 +201,7 @@ GLOBAL_CSS = """
     .content-card h3 {
         font-size: 1.125rem;
         font-weight: 600;
-        color: #1a365d;
+        color: #166534;
         margin: 0 0 0.75rem;
     }
 
@@ -228,7 +228,7 @@ GLOBAL_CSS = """
     }
 
     .source-citation a {
-        color: #2b6cb0;
+        color: #16a34a;
     }
 
     /* Chat area */
@@ -281,7 +281,7 @@ GLOBAL_CSS = """
 
     /* Streamlit chat overrides */
     .stChatMessage {
-        border-left: 3px solid #2b6cb0 !important;
+        border-left: 3px solid #16a34a !important;
     }
 
     /* Landing page hero section */
@@ -295,7 +295,7 @@ GLOBAL_CSS = """
     .hero h1 {
         font-size: 2.25rem;
         font-weight: 700;
-        color: #1a365d;
+        color: #166534;
         margin-bottom: 0.75rem;
         letter-spacing: -0.02em;
     }
@@ -321,7 +321,7 @@ GLOBAL_CSS = """
     .visa-card {
         background: white;
         border: 1px solid #e2e8f0;
-        border-radius: 6px;
+        border-radius: 12px;
         padding: 1.5rem;
         transition: box-shadow 0.2s ease, border-color 0.2s ease;
     }
@@ -334,7 +334,7 @@ GLOBAL_CSS = """
     .visa-card h3 {
         font-size: 1.125rem;
         font-weight: 600;
-        color: #1a365d;
+        color: #166534;
         margin: 0 0 0.5rem;
     }
 
@@ -347,7 +347,7 @@ GLOBAL_CSS = """
 
     .visa-card .card-link {
         font-size: 0.875rem;
-        color: #2b6cb0;
+        color: #16a34a;
         text-decoration: none;
         font-weight: 600;
     }
@@ -361,7 +361,7 @@ GLOBAL_CSS = """
         text-align: center;
         font-size: 1.5rem;
         font-weight: 600;
-        color: #1a365d;
+        color: #166534;
         margin: 2.5rem 0 1.5rem;
         max-width: 1200px;
         margin-left: auto;
@@ -386,7 +386,7 @@ GLOBAL_CSS = """
     .feature-item h4 {
         font-size: 1rem;
         font-weight: 600;
-        color: #1a365d;
+        color: #166534;
         margin: 0 0 0.5rem;
     }
 
@@ -410,14 +410,14 @@ GLOBAL_CSS = """
     .quick-start-card {
         background: white;
         border: 1px solid #e2e8f0;
-        border-radius: 6px;
+        border-radius: 12px;
         padding: 1.25rem 1.5rem;
     }
 
     .quick-start-card h4 {
         font-size: 1rem;
         font-weight: 600;
-        color: #1a365d;
+        color: #166534;
         margin: 0 0 0.5rem;
     }
 

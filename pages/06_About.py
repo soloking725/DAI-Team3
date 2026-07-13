@@ -7,21 +7,23 @@ from shared.components import (
     render_disclaimer,
     render_floating_chat,
     render_footer,
-    render_nav_bar,
+    render_hamburger_menu,
     render_section,
     render_source_citations,
 )
 from shared.styles import get_global_css
+from shared.theme import get_vera_css
 
 st.set_page_config(page_title="About", page_icon=":book:", layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
+st.markdown(get_vera_css(), unsafe_allow_html=True)
 
-render_nav_bar()
+render_hamburger_menu()
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
 
 st.markdown("""
 <div style="max-width:1200px; margin:0 auto; padding:2rem 1rem 0;">
-    <h1 style="font-size:1.75rem; font-weight:700; color:#1a365d; margin:0 0 0.5rem;">
+    <h1 style="font-size:1.75rem; font-weight:700; color:#166534; margin:0 0 0.5rem;">
         About This Tool
     </h1>
     <p style="color:#4a5568; font-size:1rem; margin:0 0 2rem;">

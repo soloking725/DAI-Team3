@@ -17,6 +17,9 @@ venv/
 # ChromaDB
 chroma_db/
 
+# Vera local session/upload storage
+local/
+
 # IDE
 .vscode/
 .idea/
