@@ -143,8 +143,16 @@ def render_step_details(step: dict, visa_type: str = "f-1"):
         st.markdown(f'<div class="vera-step-details-card">{"".join(parts)}</div>', unsafe_allow_html=True)
 
 
+@st.fragment
 def render_timeline(steps: list, allow_complete: bool = True, visa_type: str = "f-1"):
-    """Render the timeline. If allow_complete, shows a button to mark the current step done."""
+    """Render the timeline. If allow_complete, shows a button to mark the current step done.
+
+    Wrapped in @st.fragment (fragment-scoped reruns below) so that "Details"
+    / "Mark complete" clicks don't trigger a full-page rerun — a full rerun
+    here would interrupt the chat panel's own fragment mid-flight (see
+    shared/chat_panel.py), abandoning an in-progress answer and leaving
+    is_processing stuck True.
+    """
     st.markdown(TIMELINE_CSS, unsafe_allow_html=True)
 
     current_idx = _first_incomplete_index(steps)
@@ -191,11 +199,11 @@ def render_timeline(steps: list, allow_complete: bool = True, visa_type: str = "
                 is_open = st.session_state.get(open_key, False)
                 if st.button("Details" if not is_open else "Hide details", key=f"details_{step['id']}"):
                     st.session_state[open_key] = not is_open
-                    st.rerun()
+                    st.rerun(scope="fragment")
                 if is_open:
                     render_step_details(step, visa_type=visa_type)
 
             if allow_complete and is_current:
                 if st.button("Mark complete", key=f"complete_{step['id']}"):
                     mark_step_status(step["id"], "complete")
-                    st.rerun()
+                    st.rerun(scope="fragment")

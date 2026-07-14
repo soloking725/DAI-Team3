@@ -82,47 +82,55 @@ def classify_input(user_query):
 # Layer 3: Output filtering
 # -------------------------------------------------------
 
-# Patterns in LLM output that suggest legal advice is being given
+# Patterns in LLM output that suggest legal advice is being given.
+# Regexes with word boundaries so we don't match benign factual mentions
+# like "you can file Form I-20 with your school" (a plain filing-instruction
+# sentence, not advice) or "your case" inside phrasing like "your case is
+# different from most people's" — these fired as false positives before.
 ADVICE_OUTPUT_PATTERNS = [
-    ("you should", "Note: The above suggestion should be verified with an immigration attorney."),
-    ("you are eligible", "Note: Eligibility determinations require a licensed immigration attorney."),
-    ("you qualify for", "Note: Qualification determinations require a licensed immigration attorney."),
-    ("i recommend", "Note: This tool does not provide recommendations. Consult an immigration attorney."),
-    ("your case", "Note: This tool cannot evaluate individual cases. Consult an immigration attorney."),
-    ("you would need to", "Note: Individual requirements should be verified with an immigration attorney."),
-    ("you can file", "Note: Filing decisions should be made with guidance from an immigration attorney."),
-    ("i suggest", "Note: This tool does not provide suggestions. Consult an immigration attorney."),
-    ("you must file", "Note: Legal obligations should be verified with an immigration attorney."),
+    (r"\byou should\b", "Note: The above suggestion should be verified with an immigration attorney."),
+    (r"\byou are eligible\b", "Note: Eligibility determinations require a licensed immigration attorney."),
+    (r"\byou qualify for\b", "Note: Qualification determinations require a licensed immigration attorney."),
+    (r"\bi recommend\b", "Note: This tool does not provide recommendations. Consult an immigration attorney."),
+    (r"\byour case\b", "Note: This tool cannot evaluate individual cases. Consult an immigration attorney."),
+    (r"\byou would need to\b", "Note: Individual requirements should be verified with an immigration attorney."),
+    (r"\bi suggest\b", "Note: This tool does not provide suggestions. Consult an immigration attorney."),
+    (r"\byou must file\b", "Note: Legal obligations should be verified with an immigration attorney."),
 ]
 
 
-def filter_output(response_text):
+def filter_output(response_text, existing_warnings=None):
     """
     Scan LLM response for patterns suggesting legal advice.
     Append warnings where found.
 
+    Args:
+        response_text: the LLM response text to scan
+        existing_warnings: warnings already shown elsewhere in the current
+            response (e.g. from other steps rendered in the same view), so
+            the same disclaimer note isn't appended repeatedly. Pass a
+            shared list/set across calls within one render to dedupe.
+
     Returns:
         tuple: (filtered_text: str, warnings: list[str])
     """
+    already_shown = set(existing_warnings or [])
     warnings = []
     filtered = response_text
 
     for pattern, warning in ADVICE_OUTPUT_PATTERNS:
-        if pattern.lower() in response_text.lower():
+        if re.search(pattern, response_text, flags=re.IGNORECASE):
             warnings.append(warning)
-            # Append the warning to the response
-            if warning not in filtered:
+            if warning not in already_shown:
                 filtered = filtered + "\n\n" + warning
+                already_shown.add(warning)
 
-    return filtered, list(set(warnings))
+    return filtered, list(dict.fromkeys(warnings))
 
 
 # -------------------------------------------------------
 # Layer 4: Confidence gating
 # -------------------------------------------------------
-
-# Cosine distance threshold - above this, retrieval is considered insufficient
-CONFIDENCE_THRESHOLD = 1.0
 
 
 def check_confidence(distances):
@@ -146,37 +154,48 @@ def check_confidence(distances):
 # Layer 5: Chain-of-thought stripping + Visa keyword detection
 # -------------------------------------------------------
 
+MISSING_MARKER_FALLBACK = (
+    "I wasn't able to put together a clean answer to that. "
+    "Please try rephrasing your question, or consult a licensed immigration attorney for your specific situation."
+)
+
+
 def strip_thinking(response_text):
     """
-    Strip obvious chain-of-thought containers from LLM responses.
-    Conservative approach — only removes clearly-marked thinking blocks
-    to avoid stripping legitimate response content.
+    Strip chain-of-thought reasoning from LLM responses.
+
+    Fails closed: the system prompt requires a literal "FINAL ANSWER:"
+    marker separating private reasoning from the visible response, and
+    responses that omit it are supposed to be discarded. If that marker
+    is missing, we do NOT fall back to returning the raw text (which
+    would leak arbitrarily-shaped reasoning to the user) — we return a
+    generic fallback message instead. The labeled-block regexes below are
+    a secondary cleanup for reasoning that leaks *after* the marker, not
+    the primary safety mechanism.
 
     Args:
         response_text: raw LLM response
 
     Returns:
-        str: cleaned response with thinking containers removed
+        str: cleaned response, or a generic fallback if no FINAL ANSWER:
+        marker was found (reasoning could not be safely separated out).
     """
-    cleaned = response_text
+    # Primary mechanism: split on the LAST occurrence of the marker in case
+    # the reasoning itself mentions the marker name while planning to use it.
+    marker_matches = list(re.finditer(r'FINAL ANSWER:\s*\n?', response_text, flags=re.IGNORECASE))
+    if not marker_matches:
+        logger.warning("No FINAL ANSWER: marker found in LLM response — discarding raw output")
+        return MISSING_MARKER_FALLBACK
 
-    # 0. Primary mechanism: the system prompt requires a literal "FINAL ANSWER:"
-    #    marker line separating private reasoning from the visible response.
-    #    This doesn't depend on the model remembering to open/close a tag —
-    #    if the marker is present, everything before it (however it's shaped)
-    #    is discarded. Split on the LAST occurrence in case the reasoning
-    #    itself mentions the marker name while planning to use it.
-    marker_matches = list(re.finditer(r'FINAL ANSWER:\s*\n?', cleaned, flags=re.IGNORECASE))
-    if marker_matches:
-        cleaned = cleaned[marker_matches[-1].end():]
+    cleaned = response_text[marker_matches[-1].end():]
 
-    # 1. Strip <think>...</think> tags (some models use XML-style thinking tags)
+    # Strip <think>...</think> tags (some models use XML-style thinking tags)
     cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
 
-    # 2. Strip labeled thinking blocks that are clearly meta-reasoning.
-    #    Only matches sections explicitly labeled as thinking/analysis.
-    #    Uses conservative pattern: label + colon, then content until next
-    #    double-newline section. Does NOT match normal conversational language.
+    # Strip labeled thinking blocks that are clearly meta-reasoning.
+    # Only matches sections explicitly labeled as thinking/analysis.
+    # Uses conservative pattern: label + colon, then content until next
+    # double-newline section. Does NOT match normal conversational language.
     labeled_thinking = [
         r'(?:^|\n\n)Thinking Process:\s*\n.*?(?=\n\n[A-Z]|\Z)',
         r'(?:^|\n\n)Chain of Thought:\s*\n.*?(?=\n\n[A-Z]|\Z)',
@@ -190,6 +209,10 @@ def strip_thinking(response_text):
 
     # Clean up extra blank lines and leading/trailing whitespace
     cleaned = re.sub(r'\n{3,}', '\n\n', cleaned).strip()
+
+    if not cleaned:
+        logger.warning("Response was empty after stripping content following FINAL ANSWER: marker")
+        return MISSING_MARKER_FALLBACK
 
     if cleaned != response_text:
         logger.info("Stripped chain-of-thought content from LLM response")

@@ -5,6 +5,7 @@ chat experience. Reuses the same RAG + safeguard pipeline as the original
 Ask a Question page.
 """
 
+import logging
 import time
 
 import streamlit as st
@@ -21,6 +22,8 @@ from shared.safeguards import (
 )
 from shared.chatbot import call_qwen_api
 from shared.config import MAX_INPUT_LENGTH, RATE_LIMIT_SECONDS, RATE_LIMIT_MAX_REQUESTS
+
+logger = logging.getLogger(__name__)
 
 PANEL_CSS = """
 <style>
@@ -64,45 +67,57 @@ def _process_pending_question():
         return
 
     question = st.session_state.pop("pending_question")
-    with st.spinner("Searching official sources..."):
-        visa_type = extract_visa_type(question)
-        retrieval = retrieve_context(query=question, top_k=5, visa_type=visa_type, distance_threshold=1.2)
-        context = retrieval.get("context", "")
-        sources = retrieval.get("sources", [])
-        distances = retrieval.get("distances", [])
-        is_confident = check_confidence(distances)
+    try:
+        with st.spinner("Searching official sources..."):
+            visa_type = extract_visa_type(question)
+            retrieval = retrieve_context(query=question, top_k=5, visa_type=visa_type, distance_threshold=1.2)
+            context = retrieval.get("context", "")
+            sources = retrieval.get("sources", [])
+            distances = retrieval.get("distances", [])
+            is_confident = check_confidence(distances)
 
-        if not is_confident and has_visa_keyword(question):
-            broader = retrieve_context(query=question, top_k=8, visa_type=None, distance_threshold=1.3)
-            if check_confidence(broader.get("distances", [])):
-                is_confident = True
-                context = broader.get("context", "")
-                sources = broader.get("sources", [])
+            if not is_confident and has_visa_keyword(question):
+                broader = retrieve_context(query=question, top_k=8, visa_type=None, distance_threshold=1.3)
+                if check_confidence(broader.get("distances", [])):
+                    is_confident = True
+                    context = broader.get("context", "")
+                    sources = broader.get("sources", [])
 
-        st.session_state.chat_history.append({"role": "user", "content": question})
+            st.session_state.chat_history.append({"role": "user", "content": question})
 
-        if is_confident:
-            api_result = call_qwen_api(
-                user_message=question,
-                context=context,
-                history=st.session_state.conversation_history[-10:],
-            )
-            cleaned = strip_thinking(api_result["response"])
-            filtered_text, warnings = filter_output(cleaned)
-            st.session_state.chat_history.append({
-                "role": "assistant", "content": filtered_text, "warnings": warnings, "sources": sources,
-            })
-            st.session_state.conversation_history.append({"role": "user", "content": question})
-            st.session_state.conversation_history.append({"role": "assistant", "content": filtered_text})
-        else:
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": "I do not have information about this from official government sources. Try rephrasing, or consult a licensed immigration attorney for your specific situation.",
-                "warnings": ["Low confidence: no relevant official sources found."],
-                "sources": [],
-            })
+            if is_confident:
+                api_result = call_qwen_api(
+                    user_message=question,
+                    context=context,
+                    history=st.session_state.conversation_history[-10:],
+                )
+                cleaned = strip_thinking(api_result["response"])
+                filtered_text, warnings = filter_output(cleaned)
+                st.session_state.chat_history.append({
+                    "role": "assistant", "content": filtered_text, "warnings": warnings, "sources": sources,
+                })
+                st.session_state.conversation_history.append({"role": "user", "content": question})
+                st.session_state.conversation_history.append({"role": "assistant", "content": filtered_text})
+            else:
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "content": "I do not have information about this from official government sources. Try rephrasing, or consult a licensed immigration attorney for your specific situation.",
+                    "warnings": ["Low confidence: no relevant official sources found."],
+                    "sources": [],
+                })
+    except Exception:
+        logger.exception("Chat pipeline failed while answering a question")
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": "Something went wrong while looking that up. Please try asking again.",
+            "warnings": [],
+            "sources": [],
+        })
+    finally:
+        # Always clear the processing flag, even on error, so the UI never
+        # gets stuck showing "Thinking…" forever.
+        st.session_state.is_processing = False
 
-    st.session_state.is_processing = False
     st.rerun(scope="fragment")
 
 
