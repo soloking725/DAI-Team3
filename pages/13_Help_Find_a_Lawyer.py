@@ -8,12 +8,13 @@ from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu, render_disclaimer
 from shared.config import AILA_ATTORNEY_FINDER, LEGAL_ADVICE_REFUSAL
+from shared.vera_state import get_vera_state
 
 st.set_page_config(page_title="Find a lawyer - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
-render_hamburger_menu()
+render_hamburger_menu(visa_type=get_vera_state().get("profile", {}).get("visa_type") or "f-1")
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
 
 st.markdown(

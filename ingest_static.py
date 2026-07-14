@@ -62,6 +62,17 @@ def store_in_chroma(chunks, metadata_template):
         meta["section"] = f"Chunk {i + 1}"
         meta["scraped_at"] = datetime.datetime.now().isoformat()
 
+        # visa_type is stored as a "F-1|J-1"-style string (see metadata_template
+        # below) since Chroma metadata values must be scalar. Derive per-type
+        # boolean flags from it so shared/retrieval.py can apply a real where
+        # filter instead of just concatenating visa_type into the query.
+        visa_types = [v.strip().lower() for v in meta.get("visa_type", "").split("|") if v.strip()]
+        for vt in ("f-1", "j-1", "m-1", "h-1b"):
+            meta[f"is_{vt.replace('-', '')}"] = vt in visa_types
+        meta.setdefault("country", "US")  # destination-side content is about entering the US
+        meta.setdefault("origin_country", "")  # set for content specific to a country of origin
+        meta.setdefault("category", "")  # e.g. "extenuating_circumstances"
+
         collection.upsert(
             ids=[doc_id],
             documents=[chunk],
@@ -577,6 +588,188 @@ Source: SEVP, studyinthestates.dhs.gov""",
         "agency": "SEVP",
         "visa_type": ["F-1", "M-1"],
     },
+
+    # ---- Extenuating circumstances ----
+    {
+        "text": """Section 214(b) Visa Refusals and Reapplying
+
+Section 214(b) of the Immigration and Nationality Act requires every nonimmigrant visa applicant to overcome a legal presumption that they intend to immigrate permanently. A consular officer must refuse a visa under 214(b) if the applicant has not, in that officer's judgment, demonstrated sufficiently strong ties to their home country (such as employment, family, property, or other commitments) that would compel their return after a temporary stay.
+
+A 214(b) refusal is not permanent and there is no formal appeal process. An applicant may reapply at any time by submitting a new DS-160 and paying a new MRV application fee. Consular officers recommend addressing whatever evidence was missing in the prior interview, such as clearer proof of funding, stronger ties to the home country, or a more complete academic/professional plan, before reapplying.
+
+A prior 214(b) refusal does not need to be disclosed as a "denial" in the same way as a fraud or criminal-related ineligibility, but the DS-160 does ask about prior refusals and this should be answered accurately.
+
+Source: US Department of State, travel.state.gov (Visa Denials)""",
+        "url": "https://travel.state.gov/content/travel/en/us-visas/visa-information-resources/visa-denials.html",
+        "title": "State Department - Visa Denials (Section 214(b))",
+        "agency": "State Department",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "category": "extenuating_circumstances",
+    },
+    {
+        "text": """SEVIS Record Termination and Reinstatement
+
+A student's SEVIS record can be terminated by a Designated School Official (DSO) or SEVP for reasons including failure to maintain a full course of study, unauthorized employment, failure to report an address change, or failure to depart after the program end date. A terminated SEVIS record means the student is out of F-1 or M-1 status.
+
+Under 8 CFR 214.2(f)(16), a student whose SEVIS record was terminated (or who otherwise fell out of status) may apply for reinstatement by filing Form I-539, Application to Extend/Change Nonimmigrant Status, with USCIS. Reinstatement generally requires showing that the violation resulted from circumstances beyond the student's control (or that failure to reinstate would result in extreme hardship), that the student is currently pursuing a full course of study, and that the student has not been out of status for more than 5 months at the time of filing (with limited exceptions).
+
+While a reinstatement application is pending, the student should continue full-time enrollment. If reinstatement is denied, there is no appeal, but a motion to reopen/reconsider may be available depending on the circumstances.
+
+Source: USCIS, 8 CFR 214.2(f)(16); SEVP Policy Guidance""",
+        "url": "https://www.uscis.gov/i-539",
+        "title": "USCIS - Reinstatement to Student Status (Form I-539)",
+        "agency": "USCIS",
+        "visa_type": ["F-1", "M-1"],
+        "category": "extenuating_circumstances",
+    },
+    {
+        "text": """Financial Hardship: Documentation and Employment Options
+
+Applicants who cannot show the full cost of tuition and living expenses through personal or family funds may submit a sponsor's Affidavit of Support-style letter along with the sponsor's bank statements, or a scholarship/assistantship award letter from the school, as part of their financial evidence.
+
+For F-1 students already enrolled who experience financial hardship that arose after arriving in the US due to unforeseen circumstances beyond their control, federal regulation (8 CFR 214.2(f)(9)(ii)(C)) allows a DSO to authorize off-campus employment for "severe economic hardship." This requires the student to have been in F-1 status for at least one full academic year, to file Form I-765 with USCIS for an Employment Authorization Document, and to show the hardship was caused by circumstances beyond the student's control (e.g., loss of financial aid or on-campus employment through no fault of the student, substantial currency devaluation, unexpected changes in a sponsor's finances, or excessive medical expenses).
+
+Students should discuss financial hardship with their school's DSO before making any changes, since unauthorized employment while on F-1/M-1/J-1 status can result in SEVIS termination.
+
+Source: USCIS, 8 CFR 214.2(f)(9)(ii)(C); Form I-765 instructions""",
+        "url": "https://www.uscis.gov/i-765",
+        "title": "USCIS - Off-Campus Employment for Severe Economic Hardship (F-1)",
+        "agency": "USCIS",
+        "visa_type": ["F-1"],
+        "category": "extenuating_circumstances",
+    },
+    {
+        "text": """Medical or Family Emergencies During the Visa Process
+
+Most US embassies and consulates offer an emergency or expedited appointment request option for applicants who need to travel urgently due to a medical emergency, a death or serious illness in the family, or another compelling humanitarian reason. This request is typically made through the same online appointment system used to schedule the standard interview, by selecting the emergency/expedite option and explaining the reason; approval and available slots vary by post and are not guaranteed.
+
+If a medical or family emergency happens after a visa has already been refused or while a case is otherwise pending, applicants should contact the specific embassy or consulate handling their case directly, since procedures and response times differ by location.
+
+Source: US Department of State, travel.state.gov (Visa Appointment Wait Times / Contact a US Embassy or Consulate)""",
+        "url": "https://travel.state.gov/content/travel/en/us-visas/visa-information-resources/wait-times.html",
+        "title": "State Department - Expedited/Emergency Appointment Requests",
+        "agency": "State Department",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "category": "extenuating_circumstances",
+    },
+    {
+        "text": """Delayed I-20, DS-2019, or Other Required Documents
+
+If a Form I-20 or DS-2019 arrives later than expected, students should first confirm with their school's international student office (DSO or program sponsor) that SEVIS registration has been completed, since the visa interview and DS-160 both depend on the SEVIS ID found on that document. A late I-20/DS-2019 does not by itself extend a visa appointment; students should reschedule their interview date if the required documents will not be ready in time, since arriving without them can result in the interview being unsuccessful.
+
+If a program start date is close and required documents are delayed, contacting the school's DSO about a possible program start date deferral (which requires an updated I-20/DS-2019) is generally preferable to attempting an interview without complete documentation.
+
+Source: SEVP, studyinthestates.dhs.gov; US Department of State, travel.state.gov""",
+        "url": "https://studyinthestates.dhs.gov",
+        "title": "SEVP - Program Start Date and Document Timing",
+        "agency": "SEVP",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "category": "extenuating_circumstances",
+    },
+
+    # ---- Visa interview preparation ----
+    {
+        "text": """Preparing for the Student Visa Interview
+
+Consular officers use the interview to assess whether an applicant qualifies for a student visa, focusing on a few consistent topic areas rather than a fixed script. Applicants should be ready to speak clearly and specifically about: their study plans and why they chose their particular school and program; how they will pay for tuition and living expenses, including who is providing the funds and their relationship to the applicant; and their ties to their home country, such as family, career plans, or property, that support an intent to return after completing the program.
+
+Applicants should bring their passport, Form I-20 or DS-2019, DS-160 confirmation page, SEVIS fee receipt, and financial documents, and should be prepared to answer questions about the specific contents of those documents (such as the exact program length or the source of sponsorship funds) rather than only general statements.
+
+Interviews are typically short, and consular officers make decisions based on the interview and documentation provided that day; there is no fixed list of questions guaranteed to be asked, and preparation should focus on being able to explain one's own plans and documents accurately and specifically.
+
+Source: EducationUSA (US Department of State network for international student advising); US Department of State, travel.state.gov""",
+        "url": "https://educationusa.state.gov/foreign-students/apply-us-visa",
+        "title": "EducationUSA - Applying for a US Student Visa",
+        "agency": "State Department",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "category": "interview_prep",
+    },
+    {
+        "text": """Additional Scrutiny for M-1 Vocational Student Interviews
+
+M-1 vocational student visa applicants often face additional scrutiny compared to F-1 academic applicants, since vocational programs are more frequently associated with cases where consular officers have found weak ties to the home country or unclear post-program intent. M-1 applicants should be prepared to explain in detail how the specific vocational program connects to their career plans at home, and should bring complete documentation of program costs, since M-1 students (unlike F-1) must show funds for the entire course of study up front rather than just the first year.
+
+Source: US Department of State, travel.state.gov; SEVP, studyinthestates.dhs.gov""",
+        "url": "https://travel.state.gov/content/travel/en/us-visas/study/student-visa.html",
+        "title": "State Department - M-1 Vocational Student Visa Interview Considerations",
+        "agency": "State Department",
+        "visa_type": ["M-1"],
+        "category": "interview_prep",
+    },
+
+    # ---- Origin-country specific guidance (embassy/consulate locations) ----
+    {
+        "text": """Applying for a US Student Visa from India
+
+Indian applicants for F-1, J-1, or M-1 visas apply through the US Embassy in New Delhi or the US Consulates General in Mumbai, Chennai, Hyderabad, or Kolkata. Applicants should schedule their interview at the embassy or consulate with jurisdiction over their place of residence in India, though in practice applicants may sometimes apply at any post; check the specific post's website for its jurisdiction policy before booking.
+
+As with any country, reciprocity fees (an additional fee some nationalities pay based on what their home country charges US citizens for similar visas) can apply on top of the standard MRV fee — check the State Department's visa reciprocity table for India before paying, since this amount is set per visa class and can change.
+
+If a prior visa was refused under Section 214(b), Indian applicants reapply the same way as any other applicant: a new DS-160 and a new MRV fee, ideally with stronger evidence of ties to India and financial support.
+
+Source: US Embassy New Delhi and Consulates General in India, travel.state.gov""",
+        "url": "https://in.usembassy.gov/visas/",
+        "title": "US Mission India - Visa Services",
+        "agency": "State Department",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "India",
+    },
+    {
+        "text": """Applying for a US Student Visa from China
+
+Chinese applicants for F-1, J-1, or M-1 visas apply through the US Embassy in Beijing or the US Consulates General in Shanghai, Guangzhou, Shenyang, or Wuhan. As with India, applicants generally apply at the post with consular jurisdiction over their place of residence in mainland China; check the specific post's website for current jurisdiction and appointment availability, since wait times can vary significantly by post and season (appointment demand is typically highest in the summer months before the fall semester).
+
+Reciprocity fees for Chinese nationals can apply on top of the standard MRV fee for certain visa classes — check the State Department's visa reciprocity table for China, since these amounts and validity periods are set per visa class and can change.
+
+Source: US Embassy Beijing and Consulates General in China, travel.state.gov""",
+        "url": "https://china.usembassy-china.org.cn/visas/",
+        "title": "US Mission China - Visa Services",
+        "agency": "State Department",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "China",
+    },
+    {
+        "text": """Applying for a US Student Visa from Nigeria
+
+Nigerian applicants for F-1, J-1, or M-1 visas apply through the US Embassy in Abuja or the US Consulate General in Lagos. Jurisdiction is generally based on state of residence within Nigeria; check the specific post's website for the current jurisdiction breakdown and appointment wait times before booking.
+
+Reciprocity fees for Nigerian nationals can apply on top of the standard MRV fee for certain visa classes — check the State Department's visa reciprocity table for Nigeria, since amounts and visa validity periods are set per visa class and can change.
+
+Source: US Mission Nigeria, travel.state.gov""",
+        "url": "https://ng.usembassy.gov/visas/",
+        "title": "US Mission Nigeria - Visa Services",
+        "agency": "State Department",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Nigeria",
+    },
+    {
+        "text": """Applying for a US Student Visa from Brazil
+
+Brazilian applicants for F-1, J-1, or M-1 visas apply through the US Embassy in Brasilia or the US Consulates General in Rio de Janeiro, Sao Paulo, Recife, or Porto Alegre. Applicants generally apply at the post with consular jurisdiction over their state of residence in Brazil; check the specific post's website for the current jurisdiction map and appointment availability.
+
+Reciprocity fees for Brazilian nationals can apply on top of the standard MRV fee for certain visa classes — check the State Department's visa reciprocity table for Brazil, since amounts and visa validity periods are set per visa class and can change.
+
+Source: US Mission Brazil, travel.state.gov""",
+        "url": "https://br.usembassy.gov/visas/",
+        "title": "US Mission Brazil - Visa Services",
+        "agency": "State Department",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Brazil",
+    },
+    {
+        "text": """Applying for a US Student Visa from South Korea
+
+South Korean applicants for F-1, J-1, or M-1 visas apply through the US Embassy in Seoul or the US Consulate in Busan. Check the specific post's website for current jurisdiction and appointment wait times, since demand can rise sharply ahead of the US fall (August/September) semester start.
+
+Reciprocity fees for South Korean nationals can apply on top of the standard MRV fee for certain visa classes — check the State Department's visa reciprocity table for South Korea, since amounts and visa validity periods are set per visa class and can change.
+
+Source: US Embassy Seoul and US Consulate Busan, travel.state.gov""",
+        "url": "https://kr.usembassy.gov/visas/",
+        "title": "US Mission South Korea - Visa Services",
+        "agency": "State Department",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "South Korea",
+    },
 ]
 
 
@@ -628,6 +821,10 @@ def run_static_ingestion():
             "visa_type": "|".join(doc["visa_type"]),
             "last_updated": datetime.datetime.now().isoformat(),
         }
+        if doc.get("origin_country"):
+            metadata_template["origin_country"] = doc["origin_country"]
+        if doc.get("category"):
+            metadata_template["category"] = doc["category"]
 
         store_in_chroma(chunks, metadata_template)
         total_chunks += len(chunks)

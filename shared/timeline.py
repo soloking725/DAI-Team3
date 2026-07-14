@@ -7,7 +7,9 @@ rewrite a step's descriptive detail, and only when retrieval is
 confident. See shared/timeline_data.py for the source of truth.
 """
 
+import json
 import logging
+import os
 import re
 
 from shared.timeline_data import TIMELINE_TEMPLATES, DEFAULT_VISA_TYPE
@@ -18,6 +20,25 @@ from shared.chatbot import call_qwen_api
 logger = logging.getLogger(__name__)
 
 _US_DESTINATION_ALIASES = {"united states", "usa", "us", "u.s.", "u.s.a."}
+
+_ENRICHMENT_CACHE_PATH = os.path.join(os.path.dirname(__file__), "timeline_enrichment_cache.json")
+_enrichment_cache = None
+
+
+def _load_enrichment_cache() -> dict:
+    """Load the precomputed step-detail cache (see precompute_timeline_enrichment.py),
+    once per process. Every entry in TIMELINE_TEMPLATES is the same for every user on
+    a given visa type, so this is generated offline instead of via a live LLM call per
+    user — that live call used to block the whole page on "Mark complete"."""
+    global _enrichment_cache
+    if _enrichment_cache is None:
+        try:
+            with open(_ENRICHMENT_CACHE_PATH) as f:
+                _enrichment_cache = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.warning("No precomputed timeline enrichment cache found (%s); using template defaults.", e)
+            _enrichment_cache = {}
+    return _enrichment_cache
 
 ENRICHMENT_INSTRUCTION = (
     "Using ONLY the context provided below, write one short factual sentence "
@@ -37,43 +58,28 @@ def infer_visa_type(trip_details: dict) -> str:
 
 
 def build_timeline(trip_details: dict) -> list:
-    """Return a fresh list of step dicts (status='upcoming') for the trip's visa type. No LLM calls — instant."""
+    """Return a fresh list of step dicts (status='upcoming') for the trip's visa type.
+
+    Detail text comes from the precomputed enrichment cache when available (see
+    precompute_timeline_enrichment.py) — no LLM calls here, instant either way.
+    """
     visa_type = infer_visa_type(trip_details)
     template = TIMELINE_TEMPLATES[visa_type]
+    cached = _load_enrichment_cache().get(visa_type, {})
     return [
         {
             "id": step["id"],
             "title": step["title"],
             "icon": step["icon"],
-            "detail": step["default_detail"],
+            "detail": cached.get(step["id"], step["default_detail"]),
             "category": step["category"],
+            "form_url": step.get("form_url"),
+            "form_name": step.get("form_name"),
             "status": "upcoming",
-            "enriched": False,
+            "enriched": True,
         }
         for step in template
     ]
-
-
-def _first_incomplete(steps):
-    for step in steps:
-        if step["status"] != "complete":
-            return step
-    return None
-
-
-def enrich_current_step(steps: list, visa_type: str = DEFAULT_VISA_TYPE) -> bool:
-    """
-    Enrich only the current (first incomplete) step, and only once — subsequent
-    calls are a no-op until that step is marked complete and a new one becomes
-    current. Keeps LLM usage to at most one call per page load instead of one
-    per step. Returns True if a step was (re)written, so the caller knows to persist.
-    """
-    step = _first_incomplete(steps)
-    if step is None or step.get("enriched"):
-        return False
-    step["detail"] = enrich_step_detail(step, visa_type)
-    step["enriched"] = True
-    return True
 
 
 def enrich_step_detail(step: dict, visa_type: str = DEFAULT_VISA_TYPE) -> str:

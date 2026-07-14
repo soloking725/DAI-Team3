@@ -7,12 +7,13 @@ import streamlit as st
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
+from shared.vera_state import get_vera_state
 
 st.set_page_config(page_title="Privacy - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
-render_hamburger_menu()
+render_hamburger_menu(visa_type=get_vera_state().get("profile", {}).get("visa_type") or "f-1")
 
 st.markdown(
     """
@@ -26,9 +27,11 @@ st.markdown(
                   padding:16px 18px;margin-top:16px">
         <p style="font-weight:500;margin:0 0 6px">Your trip details and timeline progress</p>
         <p style="font-size:13px;color:var(--text-secondary);margin:0">
-          Your country of origin, destination, school, and which timeline steps you've marked complete
-          are saved to a file on the server, keyed to a random session ID kept in your browser's URL
-          (not a cookie, not an account). Anyone with that exact URL could view the same session.
+          Your name, visa type, country of origin, destination, school, any extenuating circumstances
+          you flag (e.g. a prior denial, SEVIS issue, or hardship — plus any notes you add), and which
+          timeline steps you've marked complete are saved to a file on the server, keyed to a random
+          session ID kept in your browser's URL (not a cookie, not an account). Anyone with that exact
+          URL could view the same session.
         </p>
       </div>
 

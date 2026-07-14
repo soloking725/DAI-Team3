@@ -228,6 +228,15 @@ def store_in_chroma(chunks, metadata_template, overwrite=True):
         meta["section"] = f"Chunk {i + 1}"
         meta["scraped_at"] = datetime.datetime.now().isoformat()
 
+        # Chroma metadata values must be scalar, so a chunk's visa_type list
+        # (e.g. ["F-1", "J-1"]) becomes per-type boolean flags for real
+        # where-filtering in shared/retrieval.py, instead of the old approach
+        # of just concatenating visa_type into the query text.
+        visa_types = [v.lower() for v in meta.pop("visa_type", [])]
+        for vt in ("f-1", "j-1", "m-1", "h-1b"):
+            meta[f"is_{vt.replace('-', '')}"] = vt in visa_types
+        meta.setdefault("country", "US")  # destination-side content is about entering the US
+
         # upsert
         collection.upsert(
             ids=[doc_id],

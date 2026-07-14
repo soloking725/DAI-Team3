@@ -53,8 +53,19 @@ def call_qwen_api(user_message: str, context: str, history: Optional[list] = Non
             base_url=QWEN_BASE_URL,
         )
 
-        # Build message history
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        # Build message history — personalize with a factual user-context line
+        # when running inside a Streamlit session (falls back silently otherwise,
+        # e.g. if called from a script with no st.session_state).
+        system_content = SYSTEM_PROMPT
+        try:
+            from shared.vera_state import build_user_context_block
+            user_context = build_user_context_block()
+            if user_context:
+                system_content = f"{SYSTEM_PROMPT}\n\n{user_context}"
+        except Exception:
+            logger.debug("No Vera session context available; using base system prompt.")
+
+        messages = [{"role": "system", "content": system_content}]
 
         if history:
             for msg in history:

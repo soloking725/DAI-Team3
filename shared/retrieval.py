@@ -38,6 +38,8 @@ def retrieve_context(
     top_k: int = DEFAULT_TOP_K,
     visa_type: Optional[str] = None,
     distance_threshold: float = DISTANCE_THRESHOLD,
+    origin_country: Optional[str] = None,
+    category: Optional[str] = None,
 ) -> dict:
     """
     Query ChromaDB for relevant context chunks.
@@ -45,8 +47,17 @@ def retrieve_context(
     Args:
         query: User's question string.
         top_k: Number of chunks to retrieve.
-        visa_type: Optional visa type filter (e.g., "F-1", "J-1", "M-1").
+        visa_type: Optional visa type filter (e.g., "F-1", "J-1", "M-1"). Applied as
+            a real Chroma `where` filter against the per-type `is_f1`/`is_j1`/`is_m1`/
+            `is_h1b` boolean flags set at ingestion time (see ingest.py/ingest_static.py),
+            not just appended to the query text.
         distance_threshold: Maximum cosine distance to accept.
+        origin_country: Optional country-of-origin filter (e.g. "India") for chunks
+            tagged with that `origin_country` at ingestion time — falls back to
+            unfiltered results if no country-specific content matches.
+        category: Optional content-category filter (e.g. "interview_prep",
+            "extenuating_circumstances") for chunks tagged with that `category`
+            at ingestion time.
 
     Returns:
         dict with keys:
@@ -59,14 +70,38 @@ def retrieve_context(
     try:
         collection = _get_collection()
 
-        # If visa_type is specified, include it in the query for better filtering
-        search_query = f"{query} {visa_type}" if visa_type else query
+        conditions = []
+        if visa_type:
+            flag = f"is_{visa_type.lower().replace('-', '')}"
+            conditions.append({flag: True})
+        if origin_country:
+            conditions.append({"origin_country": origin_country})
+        if category:
+            conditions.append({"category": category})
+
+        if len(conditions) > 1:
+            where = {"$and": conditions}
+        elif conditions:
+            where = conditions[0]
+        else:
+            where = None
 
         results = collection.query(
-            query_texts=[search_query],
+            query_texts=[query],
             n_results=top_k,
+            where=where,
             include=["documents", "distances", "metadatas"],
         )
+
+        # A visa_type filter can legitimately return nothing (e.g. content that
+        # predates the flag, or a visa type with no dedicated content yet) —
+        # fall back to an unfiltered query rather than surfacing a false "not found".
+        if where and not (results.get("documents") and results["documents"][0]):
+            results = collection.query(
+                query_texts=[query],
+                n_results=top_k,
+                include=["documents", "distances", "metadatas"],
+            )
 
         distances = results["distances"][0] if results["distances"] else []
         documents = results["documents"][0] if results["documents"] else []

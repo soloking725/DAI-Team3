@@ -7,6 +7,52 @@ current step, and grayed-out styling for upcoming ones.
 import streamlit as st
 
 from shared.vera_state import mark_step_status
+from shared.circumstances import CIRCUMSTANCE_LABELS, CIRCUMSTANCE_QUERIES
+from shared.retrieval import retrieve_context
+from shared.safeguards import check_confidence
+
+CIRCUMSTANCES_CARD_CSS = """
+<style>
+    .vera-circ-card {
+        background:#fffbeb; border:0.5px solid #f6e05e; border-left:3px solid #d69e2e;
+        border-radius:12px; padding:12px 14px; margin-bottom:16px;
+    }
+    .vera-circ-card h4 { margin:0 0 6px; font-size:13px; color:#975a16; }
+    .vera-circ-card p { margin:0 0 4px; font-size:12px; color:#7b4b12; line-height:1.5; }
+</style>
+"""
+
+
+def render_circumstances_card(categories: list, visa_type: str = "f-1"):
+    """Grounded, confidence-gated guidance for any extenuating circumstances the
+    user flagged at onboarding. Never fabricates — falls back to a plain
+    'see the source pages' pointer when retrieval isn't confident, same
+    safeguard pattern as shared/timeline.py's step enrichment."""
+    if not categories:
+        return
+
+    st.markdown(CIRCUMSTANCES_CARD_CSS, unsafe_allow_html=True)
+    for cat_id in categories:
+        label = CIRCUMSTANCE_LABELS.get(cat_id, cat_id)
+        query = CIRCUMSTANCE_QUERIES.get(cat_id, label)
+        retrieval = retrieve_context(query, top_k=3, visa_type=visa_type, distance_threshold=1.2)
+        if retrieval.get("found") and check_confidence(retrieval.get("distances", [])):
+            sources = retrieval.get("sources", [])
+            source_note = f" (see: {sources[0]['title']})" if sources else ""
+            body = (
+                f"Because you flagged \"{label}\", Vera has relevant official guidance available"
+                f"{source_note} — ask Vera about it in the chat for details."
+            )
+        else:
+            body = (
+                f"You flagged \"{label}\". Vera doesn't have specific official guidance indexed for this yet — "
+                "for anything involving a prior denial, SEVIS issue, or hardship, consider consulting a licensed "
+                "immigration attorney."
+            )
+        st.markdown(
+            f"""<div class="vera-circ-card"><h4>{label}</h4><p>{body}</p></div>""",
+            unsafe_allow_html=True,
+        )
 
 TIMELINE_CSS = """
 <style>
@@ -41,6 +87,17 @@ TIMELINE_CSS = """
 _STATUS_LABEL = {"complete": "Complete", "current": "In progress", "upcoming": "Upcoming"}
 _STATUS_ICON = {"complete": "ti-check", "current": None, "upcoming": None}
 
+STEP_DETAILS_CARD_CSS = """
+<style>
+    .vera-step-details-card {
+        background:var(--surface-1); border:0.5px solid var(--border); border-radius:12px;
+        padding:10px 14px; margin:-14px 0 18px 44px; font-size:12px; color:var(--text-secondary);
+    }
+    .vera-step-details-card p { margin:0 0 6px; line-height:1.5; }
+    .vera-step-details-card a { color:var(--text-accent); }
+</style>
+"""
+
 
 def _first_incomplete_index(steps):
     for i, step in enumerate(steps):
@@ -49,7 +106,44 @@ def _first_incomplete_index(steps):
     return None
 
 
-def render_timeline(steps: list, allow_complete: bool = True):
+def render_step_details(step: dict, visa_type: str = "f-1"):
+    """Grounded, confidence-gated extra content for a timeline step — practice
+    interview guidance for interview-category steps, and/or a link to the real
+    official form when the step has one. Never fabricates questions or forms;
+    falls back to a plain pointer when retrieval isn't confident, same pattern
+    as render_circumstances_card."""
+    st.markdown(STEP_DETAILS_CARD_CSS, unsafe_allow_html=True)
+    parts = []
+
+    if step.get("category") == "interview":
+        retrieval = retrieve_context(
+            "visa interview preparation topics", top_k=3, visa_type=visa_type,
+            category="interview_prep", distance_threshold=1.2,
+        )
+        if retrieval.get("found") and check_confidence(retrieval.get("distances", [])):
+            sources = retrieval.get("sources", [])
+            source_note = f" (see: {sources[0]['title']})" if sources else ""
+            parts.append(
+                f"<p><strong>Practice interview prep:</strong> Be ready to discuss your study plans and school "
+                f"choice, how you'll fund your studies, and your ties to your home country{source_note} — "
+                f"ask Vera in the chat for more detail grounded in official sources.</p>"
+            )
+        else:
+            parts.append(
+                "<p><strong>Practice interview prep:</strong> Vera doesn't have specific guidance indexed for "
+                "this yet — the State Department's travel.state.gov and your school's international student "
+                "office are the best places to check.</p>"
+            )
+
+    if step.get("form_url"):
+        form_name = step.get("form_name") or "the official form"
+        parts.append(f'<p><a href="{step["form_url"]}" target="_blank">Go to {form_name} ↗</a></p>')
+
+    if parts:
+        st.markdown(f'<div class="vera-step-details-card">{"".join(parts)}</div>', unsafe_allow_html=True)
+
+
+def render_timeline(steps: list, allow_complete: bool = True, visa_type: str = "f-1"):
     """Render the timeline. If allow_complete, shows a button to mark the current step done."""
     st.markdown(TIMELINE_CSS, unsafe_allow_html=True)
 
@@ -90,6 +184,16 @@ def render_timeline(steps: list, allow_complete: bool = True):
                 f'<p class="vera-step-detail">{step["detail"]}</p></div></div>'
             )
             st.markdown(row_html, unsafe_allow_html=True)
+
+            has_details = step.get("category") == "interview" or step.get("form_url")
+            if has_details:
+                open_key = f"vera_step_open_{step['id']}"
+                is_open = st.session_state.get(open_key, False)
+                if st.button("Details" if not is_open else "Hide details", key=f"details_{step['id']}"):
+                    st.session_state[open_key] = not is_open
+                    st.rerun()
+                if is_open:
+                    render_step_details(step, visa_type=visa_type)
 
             if allow_complete and is_current:
                 if st.button("Mark complete", key=f"complete_{step['id']}"):

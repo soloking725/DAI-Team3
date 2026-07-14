@@ -5,47 +5,6 @@ Shared UI components used across multiple pages.
 import streamlit as st
 
 
-def render_nav_bar(title="US Student Visa Information Resource", subtitle="Official government information on US student visa categories and processes"):
-    """Render the top navigation bar with working page links using Streamlit native navigation."""
-    st.markdown(
-        f"""
-    <div class="top-nav">
-        <div class="top-nav-inner">
-            <div class="top-nav-brand-col">
-                <p class="top-nav-brand">{title}</p>
-                <p class="top-nav-desc">{subtitle}</p>
-            </div>
-            <div class="top-nav-links">
-            """,
-        unsafe_allow_html=True,
-    )
-
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-    with c1:
-        st.page_link("app.py", label="Home")
-    with c2:
-        st.page_link("pages/01_F-1_Student_Visa.py", label="F-1")
-    with c3:
-        st.page_link("pages/02_J-1_Exchange_Visitor.py", label="J-1")
-    with c4:
-        st.page_link("pages/03_M-1_Vocational_Visa.py", label="M-1")
-    with c5:
-        st.page_link("pages/04_Ask_a_Question.py", label="Ask a Question")
-    with c6:
-        st.page_link("pages/05_Post_Visa_Guide.py", label="Post-Arrival")
-    with c7:
-        st.page_link("pages/06_About.py", label="About")
-
-    st.markdown(
-        """
-            </div>
-        </div>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-
-
 def render_disclaimer():
     """Render the persistent disclaimer banner."""
     return """
@@ -55,6 +14,52 @@ def render_disclaimer():
         situation, consult a licensed immigration attorney.
     </div>
     """
+
+
+_VISA_TYPE_NAMES = {
+    "f-1": "F-1", "j-1": "J-1", "m-1": "M-1", "h-1b": "H-1B", "other": "another visa type",
+}
+
+
+def render_profile_banner(page_visa_type: str = None):
+    """A small personalized greeting for the older static info pages.
+
+    Shows the user's name if Vera knows it, and — if the page's visa type
+    differs from the one the user told Vera they're pursuing — a soft note
+    pointing them to the right one, without hiding this page's content
+    (it's still a valid reference page for anyone reading it).
+    """
+    from shared.vera_state import get_vera_state
+
+    profile = get_vera_state().get("profile", {})
+    name = (profile.get("name") or "").strip()
+    visa_type = profile.get("visa_type") or ""
+
+    if not name and not visa_type:
+        return
+
+    greeting = f"Hi {name}, " if name else ""
+    note = ""
+    if page_visa_type and visa_type and visa_type != page_visa_type and visa_type in _VISA_TYPE_NAMES:
+        note = f"you told Vera you're pursuing an {_VISA_TYPE_NAMES[visa_type]} — this page covers {_VISA_TYPE_NAMES.get(page_visa_type, page_visa_type.upper())} instead, but the general process is similar."
+    elif greeting:
+        note = "here's what applies to you."
+
+    if not greeting and not note:
+        return
+
+    st.markdown(
+        f"""
+        <div style="max-width:1200px;margin:0 auto;padding:0 1rem">
+            <div style="background:var(--bg-accent);border:0.5px solid var(--border-accent);
+                        border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;
+                        font-size:13px;color:var(--text-accent)">
+                {greeting}{note}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_footer():
@@ -121,6 +126,8 @@ _VISA_TYPE_PAGES = {
     "f-1": "pages/01_F-1_Student_Visa.py",
     "j-1": "pages/02_J-1_Exchange_Visitor.py",
     "m-1": "pages/03_M-1_Vocational_Visa.py",
+    "h-1b": "pages/16_Other_Visa_Coming_Soon.py",
+    "other": "pages/16_Other_Visa_Coming_Soon.py",
 }
 
 HAMBURGER_CSS = """

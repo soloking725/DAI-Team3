@@ -15,9 +15,8 @@ st.set_page_config(page_title="Add your school's visa guide - Vera", layout="wid
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
-render_hamburger_menu()
-
 state = get_vera_state()
+render_hamburger_menu(visa_type=state.get("profile", {}).get("visa_type") or "f-1")
 
 st.markdown(
     """

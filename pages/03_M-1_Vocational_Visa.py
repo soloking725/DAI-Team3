@@ -8,18 +8,21 @@ from shared.components import (
     render_floating_chat,
     render_footer,
     render_hamburger_menu,
+    render_profile_banner,
     render_section,
     render_source_citations,
 )
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
+from shared.vera_state import get_vera_state
 
 st.set_page_config(page_title="M-1 Vocational Student", page_icon=":book:", layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
-render_hamburger_menu(visa_type="m-1")
+render_hamburger_menu(visa_type=get_vera_state().get("profile", {}).get("visa_type") or "m-1")
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
+render_profile_banner(page_visa_type="m-1")
 
 st.markdown("""
 <div style="max-width:1200px; margin:0 auto; padding:2rem 1rem 0;">

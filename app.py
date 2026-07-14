@@ -7,6 +7,8 @@ import streamlit as st
 
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
+from shared.components import render_hamburger_menu
+from shared.vera_state import get_vera_state
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,10 +26,16 @@ st.set_page_config(
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
+_profile = get_vera_state().get("profile", {})
+render_hamburger_menu(visa_type=_profile.get("visa_type") or "f-1")
+
+_name = (_profile.get("name") or "").strip()
+_headline = f"Welcome back, {_name}" if _name else "Welcome to Vera"
+
 st.markdown(
-    """
+    f"""
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-                text-align:center;height:80vh;gap:18px">
+                text-align:center;height:75vh;gap:18px">
 
       <div style="width:52px;height:52px;border-radius:50%;background:var(--bg-accent);
                   display:flex;align-items:center;justify-content:center">
@@ -35,7 +43,7 @@ st.markdown(
       </div>
 
       <div>
-        <h1 style="margin:0 0 6px">Welcome to Vera</h1>
+        <h1 style="margin:0 0 6px">{_headline}</h1>
         <p style="font-size:14px;color:var(--text-secondary);margin:0">Your visa help agent, one step at a time.</p>
       </div>
 
