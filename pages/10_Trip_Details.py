@@ -4,15 +4,22 @@ Page: 10_Trip_Details.py
 """
 import streamlit as st
 
+from shared.branding import FAVICON
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
+from shared import auth
 from shared.vera_state import get_vera_state, set_trip_details, set_profile
 from shared.countries import ORIGIN_OPTIONS, DESTINATION_OPTIONS
+from shared.schools import SCHOOL_OPTIONS, OTHER
 
-st.set_page_config(page_title="Tell us about your trip - Vera", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_icon=FAVICON, page_title="Tell us about your trip - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
+
+# Onboarding is the first point where we persist anything, so it's where login is
+# required in hosted mode. No-op in local mode.
+auth.require_login("Sign in to start your timeline")
 
 render_hamburger_menu(visa_type=get_vera_state().get("profile", {}).get("visa_type") or "f-1")
 
@@ -50,10 +57,19 @@ with center:
         )
         origin = st.selectbox("Country of origin", options=ORIGIN_OPTIONS, index=0)
         destination = st.selectbox("Country you're traveling to", options=DESTINATION_OPTIONS, index=0)
-        school = st.text_input(
+        school_choice = st.selectbox(
             "School (if applicable)",
-            placeholder="Search for your school",
+            options=SCHOOL_OPTIONS,
+            index=0,
+            format_func=lambda s: s or "Select your school",
             help="Leave blank if this doesn't apply to your visa type.",
+        )
+        # Shown unconditionally rather than only when "Other" is picked: this is
+        # inside st.form, which doesn't rerun on widget change, so a conditional
+        # field wouldn't appear until after submit.
+        school_other = st.text_input(
+            "If your school isn't listed, type it here",
+            placeholder="Your school's name",
         )
 
         st.markdown(
@@ -73,14 +89,19 @@ with center:
         submitted = st.form_submit_button("Continue", use_container_width=True, type="primary")
 
     if submitted:
+        # A typed-in school wins over the dropdown, so picking "Other" and typing
+        # a name works, and so does typing a name without touching the dropdown.
+        school = school_other.strip() or (
+            "" if school_choice in ("", OTHER) else school_choice
+        )
         needs_school = visa_type in STUDENT_VISA_TYPES
-        if not visa_type or not destination or (needs_school and not school.strip()):
+        if not visa_type or not destination or (needs_school and not school):
             st.error(
                 "Please select a visa type and a destination"
                 + (", and enter your school." if needs_school else ".")
             )
         else:
-            set_trip_details(origin, destination, school.strip())
+            set_trip_details(origin, destination, school)
             set_profile(name.strip(), visa_type)
 
             is_supported = visa_type in STUDENT_VISA_TYPES and destination == "United States"

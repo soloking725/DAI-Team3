@@ -5,12 +5,13 @@ Page: 16_Other_Visa_Coming_Soon.py
 """
 import streamlit as st
 
+from shared.branding import FAVICON
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu, render_source_citations
 from shared.vera_state import get_vera_state
 
-st.set_page_config(page_title="Coming soon - Vera", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_icon=FAVICON, page_title="Coming soon - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 

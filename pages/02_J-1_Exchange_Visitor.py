@@ -1,6 +1,7 @@
 """J-1 Exchange Visitor information page."""
 
 import streamlit as st
+from shared.branding import FAVICON
 
 from shared.components import (
     render_card,
@@ -16,7 +17,7 @@ from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.vera_state import get_vera_state
 
-st.set_page_config(page_title="J-1 Exchange Visitor", page_icon=":book:", layout="wide")
+st.set_page_config(page_title="J-1 Exchange Visitor", page_icon=FAVICON, layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
@@ -26,7 +27,7 @@ render_profile_banner(page_visa_type="j-1")
 
 st.markdown("""
 <div style="max-width:1200px; margin:0 auto; padding:2rem 1rem 0;">
-    <h1 style="font-size:1.75rem; font-weight:700; color:#166534; margin:0 0 0.5rem;">
+    <h1 style="font-size:1.75rem; font-weight:700; color:#5b4380; margin:0 0 0.5rem;">
         J-1 Exchange Visitor Visa
     </h1>
     <p style="color:#4a5568; font-size:1rem; margin:0 0 2rem;">
@@ -114,9 +115,9 @@ st.markdown("""
     <table style="width:100%; border-collapse:collapse; margin-top:1rem;">
         <thead>
             <tr style="border-bottom:2px solid #e2e8f0;">
-                <th style="text-align:left; padding:0.5rem; color:#166534; font-size:0.9rem;">Fee</th>
-                <th style="text-align:left; padding:0.5rem; color:#166534; font-size:0.9rem;">Amount</th>
-                <th style="text-align:left; padding:0.5rem; color:#166534; font-size:0.9rem;">Notes</th>
+                <th style="text-align:left; padding:0.5rem; color:#5b4380; font-size:0.9rem;">Fee</th>
+                <th style="text-align:left; padding:0.5rem; color:#5b4380; font-size:0.9rem;">Amount</th>
+                <th style="text-align:left; padding:0.5rem; color:#5b4380; font-size:0.9rem;">Notes</th>
             </tr>
         </thead>
         <tbody>

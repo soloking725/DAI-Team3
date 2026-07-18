@@ -1,6 +1,7 @@
 """About page with disclaimer, sources, and limitations."""
 
 import streamlit as st
+from shared.branding import FAVICON
 
 from shared.components import (
     render_card,
@@ -16,7 +17,7 @@ from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.vera_state import get_vera_state
 
-st.set_page_config(page_title="About", page_icon=":book:", layout="wide")
+st.set_page_config(page_title="About", page_icon=FAVICON, layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
@@ -26,7 +27,7 @@ render_profile_banner()
 
 st.markdown("""
 <div style="max-width:1200px; margin:0 auto; padding:2rem 1rem 0;">
-    <h1 style="font-size:1.75rem; font-weight:700; color:#166534; margin:0 0 0.5rem;">
+    <h1 style="font-size:1.75rem; font-weight:700; color:#5b4380; margin:0 0 0.5rem;">
         About This Tool
     </h1>
     <p style="color:#4a5568; font-size:1rem; margin:0 0 2rem;">

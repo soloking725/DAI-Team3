@@ -5,6 +5,7 @@ Page: 04_Ask_a_Question.py
 """
 import streamlit as st
 
+from shared.branding import FAVICON
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu, render_disclaimer, render_footer
@@ -12,10 +13,15 @@ from shared.chat_panel import render_chat_panel
 from shared.timeline_ui import render_timeline, render_circumstances_card
 from shared.timeline import build_timeline, infer_visa_type
 from shared.vera_state import get_vera_state, set_timeline
+from shared import auth
 
-st.set_page_config(page_title="Your Timeline - Vera", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_icon=FAVICON, page_title="Your Timeline - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
+
+# The timeline is per-student persisted state, so it needs a signed-in user in
+# hosted mode. No-op in local mode.
+auth.require_login("Sign in to see your timeline")
 
 state = get_vera_state()
 visa_type = infer_visa_type(state["trip_details"])

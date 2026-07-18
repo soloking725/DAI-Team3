@@ -132,7 +132,29 @@ _VISA_TYPE_PAGES = {
 
 HAMBURGER_CSS = """
 <style>
-    div[data-testid="stPopover"] button {
+    /* The header is a real bar pinned to the top of the viewport, not a couple of
+       controls floating in the middle of the centered 1200px column. The ::before
+       pseudo-element paints a full-bleed background/border across the whole window
+       width while the controls themselves stay aligned with the page content. */
+    div.st-key-vera_header {
+        position: sticky;
+        top: 0;
+        z-index: 998;
+        padding: 10px 0 8px;
+        margin-bottom: 4px;
+    }
+    div.st-key-vera_header::before {
+        content: "";
+        position: absolute;
+        top: 0; bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100vw;
+        background: #ffffff;
+        border-bottom: 0.5px solid var(--border);
+        z-index: -1;
+    }
+    div.st-key-vera_header div[data-testid="stPopover"] button {
         width:32px !important; height:32px !important; padding:0 !important;
         border-radius:var(--radius) !important; border:0.5px solid var(--border) !important;
     }
@@ -140,6 +162,15 @@ HAMBURGER_CSS = """
         font-size: 22px !important;
         font-weight: 700 !important;
         color: var(--text-accent) !important;
+    }
+    /* Brand logo (used when assets/veravisa-logo.png exists) */
+    .vera-brand-logo img {
+        height: 30px;
+        display: block;
+    }
+    .vera-brand-logo {
+        display: inline-block;
+        line-height: 0;
     }
 </style>
 """
@@ -151,30 +182,43 @@ def render_hamburger_menu(visa_type: str = "f-1"):
     "Vera" itself is a clickable brand link back to the timeline, so there's
     always a way back to the chat+timeline screen from anywhere on the site.
     """
+    from shared.branding import get_logo_data_uri
+
     st.markdown(HAMBURGER_CSS, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1, 11], vertical_alignment="center")
-    with col1:
-        with st.popover("☰"):
-            st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")
-            st.page_link("app.py", label="Home", icon=":material/home:")
-            st.divider()
-            st.page_link(
-                _VISA_TYPE_PAGES.get(visa_type, _VISA_TYPE_PAGES["f-1"]),
-                label="Forms",
-                icon=":material/description:",
-            )
-            st.page_link("pages/06_About.py", label="Info", icon=":material/info:")
-            st.page_link(
-                "pages/13_Help_Find_a_Lawyer.py",
-                label="Help (find a lawyer)",
-                icon=":material/balance:",
-            )
-            st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
-            st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
-    with col2:
-        with st.container(key="vera_brand_link"):
-            st.page_link("pages/04_Ask_a_Question.py", label="Vera")
+    with st.container(key="vera_header"):
+        col1, col2 = st.columns([1, 11], vertical_alignment="center")
+        with col1:
+            with st.popover("☰"):
+                st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")
+                st.page_link("app.py", label="Home", icon=":material/home:")
+                st.divider()
+                st.page_link(
+                    _VISA_TYPE_PAGES.get(visa_type, _VISA_TYPE_PAGES["f-1"]),
+                    label="Forms",
+                    icon=":material/description:",
+                )
+                st.page_link("pages/06_About.py", label="Info", icon=":material/info:")
+                st.page_link(
+                    "pages/13_Help_Find_a_Lawyer.py",
+                    label="Help (find a lawyer)",
+                    icon=":material/balance:",
+                )
+                st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
+                st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
+        with col2:
+            logo = get_logo_data_uri()
+            if logo:
+                # Plain <a> rather than st.page_link so the mark itself is the link;
+                # Streamlit's page_link only accepts a text label.
+                st.markdown(
+                    f'<a class="vera-brand-logo" href="/Ask_a_Question" target="_self">'
+                    f'<img src="{logo}" alt="VeraVisa"></a>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                with st.container(key="vera_brand_link"):
+                    st.page_link("pages/04_Ask_a_Question.py", label="Vera")
 
 
 FLOATING_CHAT_CSS = """

@@ -32,6 +32,43 @@ def is_api_configured() -> bool:
 
 
 # -------------------------------------------------------
+# Supabase / accounts (B2B MVP)
+# -------------------------------------------------------
+# When these are unset, the app runs in "local mode": no login, session state is
+# keyed by the ?vid= URL param and persisted to local/vera_sessions/*.json (the
+# original prototype behavior). When they're set, the app runs in "hosted mode":
+# email-OTP login, a real Postgres backend, and a DSO dashboard. Nothing else in
+# the app needs to know which mode it's in — shared/persistence.py and
+# shared/auth.py switch on is_supabase_configured() behind stable signatures.
+SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
+# Service key is used server-side only (Streamlit is trusted middleware that does
+# its own role checks in shared/auth.py). Never expose it to the browser.
+SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_KEY", "")
+
+# Email domains allowed to request a login code, comma-separated. This is only a
+# cheap pre-check so we don't email codes to arbitrary addresses — the
+# authoritative check is the colleges.email_domain lookup at verification time,
+# which also decides *which* college the user is enrolled in. Leave blank to skip
+# the pre-check entirely and rely on that lookup alone.
+ALLOWED_EMAIL_DOMAINS: list[str] = [
+    d.strip().lower().lstrip("@")
+    for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "").split(",")
+    if d.strip()
+]
+
+# Comma-separated allow-list of emails granted the 'dso' role on first login.
+DSO_EMAILS: list[str] = [
+    e.strip().lower() for e in os.getenv("DSO_EMAILS", "").split(",") if e.strip()
+]
+
+
+def is_supabase_configured() -> bool:
+    """True when the hosted (accounts + Postgres) backend is fully wired up."""
+    return bool(SUPABASE_URL and SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY)
+
+
+# -------------------------------------------------------
 # Embedding & ChromaDB Configuration
 # -------------------------------------------------------
 EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"

@@ -1,9 +1,14 @@
 """
 Vera design tokens: Tabler Icons + CSS custom properties.
 
-Maps the mockups' var(--x) design tokens onto a light-green brand accent,
-with a distinct (deeper-tint) green reserved for "complete" success states
-so the two don't visually collide, and 12px-rounded surfaces.
+Maps the mockups' var(--x) design tokens onto the VeraVisa brand purple
+(#8b72b0, sampled from assets/veravisa-logo.png), with green kept only for
+"complete"/success states so brand and status never read as the same signal.
+
+Contrast note: the raw brand purple only hits 4.09:1 against white, which fails
+WCAG AA for normal text — so --fill-primary uses a darker step (#7c5fa8, 5.17:1)
+for anything with white text on it, and --text-accent is darker still (8.21:1 on
+white). Keep that split if you adjust these.
 """
 
 VERA_CSS = """
@@ -17,18 +22,21 @@ VERA_CSS = """
 
         --border: #e2e8f0;
         --border-strong: #cbd5e0;
-        --border-accent: #4ade80;
+        --border-accent: #b9a6d4;
 
         --text-secondary: #4a5568;
         --text-muted: #718096;
 
-        --bg-accent: #f0fdf4;
-        --text-accent: #166534;
+        /* Brand purple */
+        --brand: #8b72b0;
+        --bg-accent: #f5f2fa;
+        --text-accent: #5b4380;
 
+        /* Green stays reserved for completed/success states only */
         --bg-success: #dcfce7;
         --text-success: #15803d;
 
-        --fill-primary: #16a34a;
+        --fill-primary: #7c5fa8;
         --on-primary: #ffffff;
     }
 
