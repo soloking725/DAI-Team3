@@ -25,6 +25,23 @@ from shared.config import MAX_INPUT_LENGTH, RATE_LIMIT_SECONDS, RATE_LIMIT_MAX_R
 
 logger = logging.getLogger(__name__)
 
+# A bare "please continue" isn't a new factual question — it's asking the
+# model to keep going on an answer already given (and already confidence-
+# gated) earlier in conversation_history. Running it through retrieval as if
+# it were a fresh query always fails (there's nothing to embed-match against
+# "please continue" itself) and used to fall straight into the canned refusal
+# even though a real answer was already in progress.
+_CONTINUATION_PHRASES = {
+    "continue", "please continue", "continue please", "keep going",
+    "go on", "go on please", "and then", "what else", "more", "more please",
+    "tell me more", "keep on", "next",
+}
+
+
+def _is_continuation_request(question: str) -> bool:
+    normalized = question.strip().lower().rstrip(".!?")
+    return normalized in _CONTINUATION_PHRASES
+
 PANEL_CSS = """
 <style>
     .vera-chat-header {
@@ -69,19 +86,30 @@ def _process_pending_question():
     question = st.session_state.pop("pending_question")
     try:
         with st.spinner("Searching official sources..."):
-            visa_type = extract_visa_type(question)
-            retrieval = retrieve_context(query=question, top_k=5, visa_type=visa_type, distance_threshold=1.2)
-            context = retrieval.get("context", "")
-            sources = retrieval.get("sources", [])
-            distances = retrieval.get("distances", [])
-            is_confident = check_confidence(distances)
+            is_continuation = (
+                _is_continuation_request(question)
+                and bool(st.session_state.conversation_history)
+            )
 
-            if not is_confident and has_visa_keyword(question):
-                broader = retrieve_context(query=question, top_k=8, visa_type=None, distance_threshold=1.3)
-                if check_confidence(broader.get("distances", [])):
-                    is_confident = True
-                    context = broader.get("context", "")
-                    sources = broader.get("sources", [])
+            if is_continuation:
+                # Nothing new to fact-check — the prior answer already went
+                # through retrieval + confidence gating; just let the model
+                # keep going on it using the existing history.
+                context, sources, is_confident = "", [], True
+            else:
+                visa_type = extract_visa_type(question)
+                retrieval = retrieve_context(query=question, top_k=5, visa_type=visa_type, distance_threshold=1.2)
+                context = retrieval.get("context", "")
+                sources = retrieval.get("sources", [])
+                distances = retrieval.get("distances", [])
+                is_confident = check_confidence(distances)
+
+                if not is_confident and has_visa_keyword(question):
+                    broader = retrieve_context(query=question, top_k=8, visa_type=None, distance_threshold=1.3)
+                    if check_confidence(broader.get("distances", [])):
+                        is_confident = True
+                        context = broader.get("context", "")
+                        sources = broader.get("sources", [])
 
             st.session_state.chat_history.append({"role": "user", "content": question})
 

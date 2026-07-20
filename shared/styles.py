@@ -11,6 +11,23 @@ GLOBAL_CSS = """
     header { visibility: hidden; }
     .stDeployButton { display: none; }
 
+    /* Every st.markdown(css_string) call used purely to inject <style>/<link>
+       tags (theme.py also injects a Tabler Icons <link>) still renders as a
+       zero-height flex child of the page's vertical block, so Streamlit's
+       default row-gap (16px) stacks up as dead space above whatever renders
+       first (e.g. the sticky header). Collapsing these to display:none
+       removes them from the flex flow entirely — <style>/<link> tags still
+       apply regardless of an ancestor's display value. The :not(:has(...))
+       clause makes sure this only ever matches markdown blocks made up
+       entirely of style/link tags, never real visible content. */
+    div[data-testid="stElementContainer"]:has(
+        div[data-testid="stMarkdownContainer"] > style
+    ):not(:has(
+        div[data-testid="stMarkdownContainer"] > :not(style):not(link)
+    )) {
+        display: none;
+    }
+
     /* Body background: prevents flash on navigation */
     body {
         background-color: #f8f9fa !important;

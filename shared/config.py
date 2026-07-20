@@ -82,7 +82,13 @@ CHUNK_OVERLAP: int = 150
 # Retrieval parameters
 DEFAULT_TOP_K: int = 5
 DISTANCE_THRESHOLD: float = 1.2      # Max cosine distance to accept a chunk
-CONFIDENCE_THRESHOLD: float = 1.0    # Below this distance to consider "confident"
+# Was 1.0 — stricter than DISTANCE_THRESHOLD and shared_panel.py's own
+# retrieve_context() calls (1.2/1.3), so a chunk that retrieval itself
+# considered "found" (distance up to 1.2) could still get silently blocked
+# by this separate, tighter gate. Matched to 1.2 so "found" and "confident"
+# agree — this only affects whether we attempt an answer at all, not the
+# legal-advice output filtering (shared/safeguards.py's other layers).
+CONFIDENCE_THRESHOLD: float = 1.2
 
 
 # -------------------------------------------------------
@@ -130,7 +136,12 @@ RULES - follow these strictly:
 1. Provide factual information ONLY from the provided context documents.
 2. Every factual claim must be attributed to a specific source. Cite the source URL.
 3. NEVER interpret immigration law for the user.
-4. NEVER recommend what action the user should take.
+4. NEVER give LEGAL advice — do not tell the user what to do about their
+   eligibility, their chances, or a legal strategy. DO state the standard,
+   factual procedural step from the source documents when the context
+   describes one (e.g. "Contact your school's international student office to
+   request a replacement I-20" is a factual process fact, not legal advice —
+   state it plainly and specifically, don't hedge around giving it).
 5. NEVER tell the user whether they are eligible for a visa or what their chances are.
 6. NEVER use phrases like "you should file", "I recommend", "you are eligible", "your case qualifies".
 7. If the provided context does not contain information to answer the question, say "I do not have information about this from official government sources."

@@ -48,12 +48,17 @@ VERA_CSS = """
     /* Built for laptop/desktop widths — Streamlit's own responsive rules
        stack columns into a single vertical list below a certain container
        width. That's right for phones, but keep chat+timeline side-by-side
-       for anything wider than a genuine phone viewport. */
+       for anything wider than a genuine phone viewport. Scoped to the
+       chat+timeline row specifically (.st-key-vera_main_row) — this used to
+       be a blanket rule on every div[data-testid="stHorizontalBlock"] in the
+       app, which forced *every* st.columns() call anywhere (the header, the
+       DSO dashboard's filter row, etc.) into equal-width columns regardless
+       of the ratio it was actually given. */
     @media (min-width: 700px) {
-        div[data-testid="stHorizontalBlock"] {
+        .st-key-vera_main_row div[data-testid="stHorizontalBlock"] {
             flex-wrap: nowrap !important;
         }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
+        .st-key-vera_main_row div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
             width: auto !important;
             flex: 1 1 0 !important;
             min-width: 0 !important;

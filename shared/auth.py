@@ -24,9 +24,14 @@ see data for the college their domain maps to.
 
 from __future__ import annotations
 
+import time
+
 import streamlit as st
 
 from shared import config, db
+
+_OTP_SEND_COOLDOWN_SECONDS = 60
+_OTP_MAX_VERIFY_ATTEMPTS = 5
 
 _LOCAL_USER = {
     "id": "local",
@@ -83,8 +88,8 @@ def require_login(title: str = "Sign in to Vera") -> dict:
 
 
 def logout() -> None:
-    for key in ("auth_user", "vera", "chat_history", "conversation_history",
-                "request_timestamps", "_otp_email"):
+    for key in ("auth_user", "vera", "_vera_loaded_key", "chat_history",
+                "conversation_history", "request_timestamps", "_otp_email"):
         st.session_state.pop(key, None)
 
 
@@ -134,15 +139,20 @@ def render_login(title: str = "Sign in to Vera") -> None:
     if not config.is_supabase_configured():
         return
 
-    client = db.get_client()
+    client = db.get_auth_client()
     st.markdown(f"### {title}")
     st.caption("Use your school email. We'll send you a 6-digit code.")
+    st.info("Email delivery currently takes about 2-3 minutes — please wait for it before trying again.")
 
     email = st.text_input("School email", key="_otp_email_input").strip().lower()
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Send code", use_container_width=True):
+        last_sent = st.session_state.get("_otp_sent_at", 0.0)
+        cooldown_left = _OTP_SEND_COOLDOWN_SECONDS - (time.monotonic() - last_sent)
+        if cooldown_left > 0:
+            st.button(f"Resend in {int(cooldown_left) + 1}s", use_container_width=True, disabled=True)
+        elif st.button("Send code", use_container_width=True):
             domain = email.split("@")[-1] if "@" in email else ""
             if "@" not in email:
                 st.error("Enter a valid email address.")
@@ -152,12 +162,20 @@ def render_login(title: str = "Sign in to Vera") -> None:
                 try:
                     client.auth.sign_in_with_otp({"email": email})
                     st.session_state["_otp_email"] = email
+                    st.session_state["_otp_sent_at"] = time.monotonic()
+                    st.session_state["_otp_attempts"] = 0
                     st.success("Code sent. Check your email.")
+                    st.warning("Delivery can take 2-3 minutes — please wait before requesting a new code.")
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Couldn't send a code: {e}")
 
     sent_to = st.session_state.get("_otp_email")
     if sent_to:
+        attempts = st.session_state.get("_otp_attempts", 0)
+        if attempts >= _OTP_MAX_VERIFY_ATTEMPTS:
+            st.error("Too many incorrect attempts. Request a new code to try again.")
+            return
         code = st.text_input(f"Code sent to {sent_to}", key="_otp_code").strip()
         with col2:
             if st.button("Verify", use_container_width=True):
@@ -166,12 +184,16 @@ def render_login(title: str = "Sign in to Vera") -> None:
                         {"email": sent_to, "token": code, "type": "email"}
                     )
                     if res.user is None:
+                        st.session_state["_otp_attempts"] = attempts + 1
                         st.error("Invalid or expired code.")
                         return
                     user = _finalize_login(res.user)
                     if user is None:
                         st.error("Not authorized for this pilot.")
                         return
+                    st.session_state.pop("_otp_attempts", None)
+                    st.session_state.pop("_otp_sent_at", None)
                     st.rerun()
                 except Exception as e:
+                    st.session_state["_otp_attempts"] = attempts + 1
                     st.error(f"Verification failed: {e}")

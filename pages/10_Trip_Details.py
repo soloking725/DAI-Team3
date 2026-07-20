@@ -10,7 +10,7 @@ from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
 from shared import auth
 from shared.vera_state import get_vera_state, set_trip_details, set_profile
-from shared.countries import ORIGIN_OPTIONS, DESTINATION_OPTIONS
+from shared.countries import ORIGIN_OPTIONS, DESTINATION_COUNTRIES
 from shared.schools import SCHOOL_OPTIONS, OTHER
 
 st.set_page_config(page_icon=FAVICON, page_title="Tell us about your trip - Vera", layout="wide", initial_sidebar_state="collapsed")
@@ -56,7 +56,10 @@ with center:
             index=0,
         )
         origin = st.selectbox("Country of origin", options=ORIGIN_OPTIONS, index=0)
-        destination = st.selectbox("Country you're traveling to", options=DESTINATION_OPTIONS, index=0)
+        destination = st.selectbox(
+            "Country you're traveling to", options=DESTINATION_COUNTRIES, index=0,
+            disabled=True, help="Other destinations aren't supported yet.",
+        )
         school_choice = st.selectbox(
             "School (if applicable)",
             options=SCHOOL_OPTIONS,

@@ -2,6 +2,7 @@
 Vera - Welcome screen
 Entry point - app.py
 """
+import html
 import logging
 import streamlit as st
 
@@ -31,7 +32,7 @@ st.markdown(get_vera_css(), unsafe_allow_html=True)
 _profile = get_vera_state().get("profile", {})
 render_hamburger_menu(visa_type=_profile.get("visa_type") or "f-1")
 
-_name = (_profile.get("name") or "").strip()
+_name = html.escape((_profile.get("name") or "").strip())
 _headline = f"Welcome back, {_name}" if _name else "Welcome to Vera"
 
 # Hero sits in normal flow (no fixed 75vh) so the Get started button below it is

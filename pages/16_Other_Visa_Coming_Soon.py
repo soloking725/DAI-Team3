@@ -3,6 +3,8 @@ Shown when a user's visa type or destination isn't one Vera has full
 content for yet (currently: F-1/J-1/M-1 to the United States).
 Page: 16_Other_Visa_Coming_Soon.py
 """
+import html
+
 import streamlit as st
 
 from shared.branding import FAVICON
@@ -20,7 +22,7 @@ profile = state.get("profile", {})
 trip = state.get("trip_details", {})
 visa_type = profile.get("visa_type") or ""
 destination = trip.get("destination") or ""
-name = (profile.get("name") or "").strip()
+name = html.escape((profile.get("name") or "").strip())
 
 render_hamburger_menu(visa_type=visa_type or "f-1")
 

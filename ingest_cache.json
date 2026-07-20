@@ -1,27 +1,92 @@
 {
-  "https://travel.state.gov/content/travel/en/us-visas/study.html": {
-    "hash": "86cfc11b0d94ddb2f32eb4779ed8dd2f",
-    "scraped_at": "2026-07-08T14:51:29.873744",
-    "chunk_count": 7
-  },
-  "https://travel.state.gov/content/travel/en/us-visas.html": {
-    "hash": "4215d922f7c91338a241e2bc235386b4",
-    "scraped_at": "2026-07-08T14:51:30.799424",
-    "chunk_count": 10
-  },
   "https://www.uscis.gov/working-in-the-united-states/students-and-exchange-visitors": {
     "hash": "2c7a3c994610ec3c0efeaab64d3f3257",
-    "scraped_at": "2026-07-08T14:51:31.224890",
+    "scraped_at": "2026-07-20T14:54:18.651736",
     "chunk_count": 3
   },
   "https://studyinthestates.dhs.gov/": {
-    "hash": "4856520612a7465905a2b5a5ad6eea4b",
-    "scraped_at": "2026-07-08T14:51:31.756991",
+    "hash": "bd12cfb47bddd0b0bf957970885cab60",
+    "scraped_at": "2026-07-20T14:54:19.132765",
     "chunk_count": 4
   },
   "https://www.uscis.gov/": {
-    "hash": "ed3021686c6930c70a523e56e525968c",
-    "scraped_at": "2026-07-08T14:51:32.031734",
+    "hash": "be9aca98816afce9906097a0a40e9e31",
+    "scraped_at": "2026-07-20T14:54:19.405965",
     "chunk_count": 3
+  },
+  "https://studyinthestates.dhs.gov/students/work/obtaining-a-social-security-number": {
+    "hash": "a89eb21b44cef0cc624affe23eca2571",
+    "scraped_at": "2026-07-20T14:54:20.015443",
+    "chunk_count": 7
+  },
+  "https://www.ssa.gov/ssnumber/ss5doc.htm": {
+    "hash": "ab8526e6e0463c290374164fbf50b787",
+    "scraped_at": "2026-07-20T14:54:36.356459",
+    "chunk_count": 205
+  },
+  "https://www.irs.gov/individuals/international-taxpayers/foreign-students-scholars-teachers-researchers-and-exchange-visitors": {
+    "hash": "91c41297a7aa3dc3fc3971f7d9ec2c7d",
+    "scraped_at": "2026-07-20T14:54:36.945221",
+    "chunk_count": 5
+  },
+  "https://ph.usembassy.gov/visas/": {
+    "hash": "5627fcc218ab2fa8feb72a9fe9dd296f",
+    "scraped_at": "2026-07-20T14:54:39.665254",
+    "chunk_count": 31
+  },
+  "https://vn.usembassy.gov/visas/": {
+    "hash": "b82cd60c30094024e6dd06f01225579e",
+    "scraped_at": "2026-07-20T14:54:42.154049",
+    "chunk_count": 28
+  },
+  "https://pk.usembassy.gov/visas/important-visa-information/": {
+    "hash": "a8f0f0effc2716f874df7f1c2b1ad0cc",
+    "scraped_at": "2026-07-20T14:54:43.268978",
+    "chunk_count": 12
+  },
+  "https://bd.usembassy.gov/visas/": {
+    "hash": "415be70460e9c8de71117b755fde5ec9",
+    "scraped_at": "2026-07-20T14:54:45.421956",
+    "chunk_count": 25
+  },
+  "https://mx.usembassy.gov/visas/": {
+    "hash": "2152ca7394899a92213ccad8967aff4d",
+    "scraped_at": "2026-07-20T14:54:49.433779",
+    "chunk_count": 48
+  },
+  "https://gh.usembassy.gov/visas/": {
+    "hash": "74071d1f87fea70176a0f2429e44b1d1",
+    "scraped_at": "2026-07-20T14:54:50.941903",
+    "chunk_count": 17
+  },
+  "https://np.usembassy.gov/visas/": {
+    "hash": "ae25fb9d1b8787e3e978c1751938a89f",
+    "scraped_at": "2026-07-20T14:54:53.464852",
+    "chunk_count": 26
+  },
+  "https://id.usembassy.gov/visas/": {
+    "hash": "880e1b88f806338efaa5163c7ae8fe40",
+    "scraped_at": "2026-07-20T14:54:56.330367",
+    "chunk_count": 32
+  },
+  "https://ca.usembassy.gov/consular-services/": {
+    "hash": "1812687c979755d43ae6239b687f47bf",
+    "scraped_at": "2026-07-20T14:54:57.744224",
+    "chunk_count": 15
+  },
+  "https://co.usembassy.gov/visas/": {
+    "hash": "5fba6a8edb90b4946e8a344c158272ae",
+    "scraped_at": "2026-07-20T14:54:59.826436",
+    "chunk_count": 26
+  },
+  "https://pe.usembassy.gov/visas/": {
+    "hash": "976383f620b6b72ea9df6331ddbad316",
+    "scraped_at": "2026-07-20T14:55:02.488167",
+    "chunk_count": 36
+  },
+  "https://jp.usembassy.gov/visas/": {
+    "hash": "4152b81bcba9632ebed209b46db549c7",
+    "scraped_at": "2026-07-20T14:55:04.785697",
+    "chunk_count": 31
   }
 }

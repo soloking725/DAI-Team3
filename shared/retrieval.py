@@ -71,37 +71,39 @@ def retrieve_context(
         collection = _get_collection()
 
         conditions = []
+        if category:
+            conditions.append({"category": category})
+        if origin_country:
+            conditions.append({"origin_country": origin_country})
         if visa_type:
             flag = f"is_{visa_type.lower().replace('-', '')}"
             conditions.append({flag: True})
-        if origin_country:
-            conditions.append({"origin_country": origin_country})
-        if category:
-            conditions.append({"category": category})
 
-        if len(conditions) > 1:
-            where = {"$and": conditions}
-        elif conditions:
-            where = conditions[0]
-        else:
-            where = None
+        def _where(conds):
+            if len(conds) > 1:
+                return {"$and": conds}
+            return conds[0] if conds else None
 
-        results = collection.query(
-            query_texts=[query],
-            n_results=top_k,
-            where=where,
-            include=["documents", "distances", "metadatas"],
-        )
-
-        # A visa_type filter can legitimately return nothing (e.g. content that
-        # predates the flag, or a visa type with no dedicated content yet) —
-        # fall back to an unfiltered query rather than surfacing a false "not found".
-        if where and not (results.get("documents") and results["documents"][0]):
-            results = collection.query(
+        def _run(conds):
+            return collection.query(
                 query_texts=[query],
                 n_results=top_k,
+                where=_where(conds),
                 include=["documents", "distances", "metadatas"],
             )
+
+        def _has_hits(res):
+            return bool(res.get("documents") and res["documents"][0])
+
+        # A filter can legitimately return nothing (e.g. content that predates
+        # a flag, or a visa type with no dedicated content yet). Relax filters
+        # one at a time, least-specific first, instead of dropping all of them
+        # at once — a category miss shouldn't also discard the visa_type match,
+        # since that would surface off-topic content as if it were on-topic.
+        results = _run(conditions)
+        while conditions and not _has_hits(results):
+            conditions = conditions[1:]
+            results = _run(conditions)
 
         distances = results["distances"][0] if results["distances"] else []
         documents = results["documents"][0] if results["documents"] else []

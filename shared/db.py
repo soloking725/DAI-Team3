@@ -60,6 +60,21 @@ def get_client() -> Optional["Client"]:
     return create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
 
 
+@st.cache_resource
+def get_auth_client() -> Optional["Client"]:
+    """Separate client, anon key, for the OTP login handshake only.
+
+    Never share this with get_client(): calling .auth.verify_otp() on a
+    Supabase client swaps its session onto the logged-in user's JWT, which
+    would silently downgrade every later service-key query (via get_client())
+    from bypassing RLS to running as that authenticated user, since both are
+    cached singletons for the process lifetime.
+    """
+    if not is_available():
+        return None
+    return create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+
+
 # ---------------------------------------------------------------------------
 # Colleges
 # ---------------------------------------------------------------------------
@@ -101,15 +116,22 @@ def set_college_guide_url(college_id: str, guide_pdf_url: str) -> None:
 def upsert_user(
     user_id: str, email: str, college_id: str, role: str, name: str = ""
 ) -> dict:
-    """Insert or update the app-level user record for an authenticated identity."""
+    """Insert or update the app-level user record for an authenticated identity.
+
+    `role` only takes effect the first time this user logs in (bootstrapping
+    from the DSO_EMAILS allow-list). On every later login the existing DB row
+    is authoritative, so a role change only needs a DB update, not an env-var
+    edit plus redeploy.
+    """
     client = get_client()
     if client is None:
         raise RuntimeError("upsert_user called in local mode")
+    existing = get_user(user_id)
     row = {
         "id": user_id,
         "email": email.lower(),
         "college_id": college_id,
-        "role": role,
+        "role": existing["role"] if existing else role,
     }
     if name:
         row["name"] = name
@@ -252,17 +274,37 @@ def list_students(college_id: str) -> list[dict]:
     return roster
 
 
-def dso_override_step(actor_id: str, student_user_id: str, step_id: str, status: str) -> None:
+def dso_override_step(
+    actor_id: str, college_id: str, student_user_id: str, step_id: str, status: str
+) -> bool:
     """DSO overrides one timeline step's status on a student's behalf.
+
+    college_id scopes this to the acting DSO's own college regardless of which
+    caller/UI invokes it — the service-role client bypasses RLS, so this check
+    is the actual tenant boundary, not just the roster the UI happens to show.
 
     Edits the student's blob in place (timeline lives inside full_state), tags the
     step as DSO-updated, re-saves (which refreshes the denormalized columns), and
-    writes an audit row.
+    writes an audit row. Returns True if a step was actually changed.
     """
     client = get_client()
     if client is None:
-        return
-    blob = load_state(student_user_id)
+        return False
+    if status not in ("upcoming", "complete"):
+        raise ValueError(f"invalid step status: {status!r}")
+
+    res = (
+        client.table("students")
+        .select("user_id,full_state")
+        .eq("user_id", student_user_id)
+        .eq("college_id", college_id)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        return False
+
+    blob = res.data[0].get("full_state") or {}
     changed = False
     for step in blob.get("timeline", []):
         if step.get("id") == step_id:
@@ -271,8 +313,9 @@ def dso_override_step(actor_id: str, student_user_id: str, step_id: str, status:
             changed = True
             break
     if changed:
-        save_state(student_user_id, blob)
+        save_state(student_user_id, blob, college_id=college_id)
         write_audit(actor_id, "edit_step", student_user_id, {"step": step_id, "status": status})
+    return changed
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +339,81 @@ def list_announcements(college_id: str, limit: int = 10) -> list[dict]:
         .select("body,created_at")
         .eq("college_id", college_id)
         .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return res.data or []
+
+
+# ---------------------------------------------------------------------------
+# Direct messages (DSO <-> student, one thread per pair)
+# ---------------------------------------------------------------------------
+def get_dso_users(college_id: str) -> list[dict]:
+    """DSOs for a college, so a student can pick who to message."""
+    client = get_client()
+    if client is None:
+        return []
+    res = (
+        client.table("users")
+        .select("id,name,email")
+        .eq("college_id", college_id)
+        .eq("role", "dso")
+        .execute()
+    )
+    return res.data or []
+
+
+def send_message(college_id: str, sender_id: str, recipient_id: str, body: str) -> None:
+    """Insert a message, after verifying both parties actually belong to
+    college_id and are a valid dso<->student pair.
+
+    The service-role client bypasses RLS, so nothing else stops a caller bug
+    from cross-wiring a message to the wrong college or pairing two students —
+    this check is the actual tenant boundary for this table, not just a
+    convenience for the UIs that currently only ever pass correctly-scoped IDs.
+    """
+    client = get_client()
+    if client is None:
+        return
+    parties = (
+        client.table("users")
+        .select("id,college_id,role")
+        .in_("id", [sender_id, recipient_id])
+        .execute()
+    ).data or []
+    by_id = {p["id"]: p for p in parties}
+    sender = by_id.get(sender_id)
+    recipient = by_id.get(recipient_id)
+    if not sender or not recipient:
+        raise ValueError("send_message: sender or recipient not found")
+    if sender["college_id"] != college_id or recipient["college_id"] != college_id:
+        raise ValueError("send_message: sender/recipient must belong to college_id")
+    if {sender["role"], recipient["role"]} != {"student", "dso"}:
+        raise ValueError("send_message: only dso<->student messages are allowed")
+    client.table("messages").insert(
+        {
+            "college_id": college_id,
+            "sender_id": sender_id,
+            "recipient_id": recipient_id,
+            "body": body,
+        }
+    ).execute()
+
+
+def list_thread(college_id: str, user_a: str, user_b: str, limit: int = 100) -> list[dict]:
+    """Every message between two specific users, oldest first."""
+    client = get_client()
+    if client is None:
+        return []
+    res = (
+        client.table("messages")
+        .select("sender_id,recipient_id,body,created_at")
+        .eq("college_id", college_id)
+        .or_(
+            f"and(sender_id.eq.{user_a},recipient_id.eq.{user_b}),"
+            f"and(sender_id.eq.{user_b},recipient_id.eq.{user_a})"
+        )
+        .order("created_at", desc=False)
         .limit(limit)
         .execute()
     )

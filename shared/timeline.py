@@ -49,21 +49,30 @@ ENRICHMENT_INSTRUCTION = (
 )
 
 
-def infer_visa_type(trip_details: dict) -> str:
-    """Pick a visa type template. Only US destinations are supported; default to F-1 otherwise."""
+def infer_visa_type(trip_details: dict, selected_visa_type: str = "") -> str:
+    """Pick a visa type template.
+
+    The visa type the user explicitly chose (Trip Details' profile.visa_type)
+    is authoritative when it matches a known template; destination is only
+    used as a fallback for sessions that predate that field. Only US
+    destinations are supported; default to F-1 otherwise.
+    """
+    selected = (selected_visa_type or "").strip().lower()
+    if selected in TIMELINE_TEMPLATES:
+        return selected
     destination = (trip_details.get("destination") or "").strip().lower()
     if destination and destination not in _US_DESTINATION_ALIASES:
         logger.info("Destination '%s' not recognized as the US; defaulting to F-1 template.", destination)
     return DEFAULT_VISA_TYPE
 
 
-def build_timeline(trip_details: dict) -> list:
+def build_timeline(trip_details: dict, selected_visa_type: str = "") -> list:
     """Return a fresh list of step dicts (status='upcoming') for the trip's visa type.
 
     Detail text comes from the precomputed enrichment cache when available (see
     precompute_timeline_enrichment.py) — no LLM calls here, instant either way.
     """
-    visa_type = infer_visa_type(trip_details)
+    visa_type = infer_visa_type(trip_details, selected_visa_type)
     template = TIMELINE_TEMPLATES[visa_type]
     cached = _load_enrichment_cache().get(visa_type, {})
     return [
@@ -108,6 +117,44 @@ def enrich_step_detail(step: dict, visa_type: str = DEFAULT_VISA_TYPE) -> str:
     filtered, warnings = filter_output(response)
     if warnings:
         # Output tripped an advice-pattern safeguard; stay with the safe default.
+        return fallback
+
+    return _strip_inline_citation(filtered)
+
+
+def enrich_step_with_origin(step: dict, visa_type: str, origin_country: str) -> str:
+    """Rewrite an interview-stage step's detail using the student's own origin
+    country's embassy/consulate content (see ingest.py's
+    ORIGIN_COUNTRY_SOURCE_URLS), instead of the generic per-visa-type default
+    every student otherwise gets from the precomputed cache.
+
+    Same constrained/confidence-gated/never-fabricate contract as
+    enrich_step_detail() — this is the one live, per-student call the timeline
+    makes (at most once, for the current step only), mirroring the existing
+    single-call-per-page-load design used for the general enrichment pass.
+    """
+    fallback = step["detail"]
+    if not origin_country:
+        return fallback
+
+    retrieval = retrieve_context(step["title"], visa_type=visa_type, origin_country=origin_country)
+    if not retrieval.get("found") or not check_confidence(retrieval.get("distances", [])):
+        return fallback
+
+    instruction = ENRICHMENT_INSTRUCTION.format(title=step["title"]) + (
+        f" Focus specifically on {origin_country}-specific details (embassy/consulate "
+        f"location, appointment process) if the context provides them."
+    )
+    result = call_qwen_api(instruction, retrieval["context"])
+    if result.get("error"):
+        return fallback
+
+    response = strip_thinking(result.get("response", "")).strip()
+    if not response or "NOT_ENOUGH_CONTEXT" in response.upper():
+        return fallback
+
+    filtered, warnings = filter_output(response)
+    if warnings:
         return fallback
 
     return _strip_inline_citation(filtered)

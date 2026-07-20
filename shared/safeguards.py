@@ -18,8 +18,16 @@ from shared.config import (
     LEGAL_MATCH_THRESHOLD,
 )
 
-# Visa type keywords for fallback activation
-VISA_KEYWORDS = ["f-1", "j-1", "m-1", "f1", "j1", "m1", "student visa", "exchange visa"]
+# Visa type keywords for fallback activation. Started as just the visa-type
+# names, but real questions ("I don't have my I-20") name the specific
+# form/process instead of the visa type — those didn't qualify for the
+# broader-retry retrieval pass below even though they're clearly on-topic.
+VISA_KEYWORDS = [
+    "f-1", "j-1", "m-1", "f1", "j1", "m1", "student visa", "exchange visa",
+    "i-20", "i20", "ds-2019", "ds2019", "ds-160", "ds160", "sevis", "sevp",
+    "i-901", "i901", "opt", "cpt", "i-94", "i94", "i-765", "i765",
+    "visa interview", "consulate", "embassy",
+]
 
 logger = logging.getLogger(__name__)
 

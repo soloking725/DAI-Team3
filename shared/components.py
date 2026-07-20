@@ -2,6 +2,8 @@
 Shared UI components used across multiple pages.
 """
 
+import html
+
 import streamlit as st
 
 
@@ -32,7 +34,7 @@ def render_profile_banner(page_visa_type: str = None):
     from shared.vera_state import get_vera_state
 
     profile = get_vera_state().get("profile", {})
-    name = (profile.get("name") or "").strip()
+    name = html.escape((profile.get("name") or "").strip())
     visa_type = profile.get("visa_type") or ""
 
     if not name and not visa_type:
@@ -154,6 +156,17 @@ HAMBURGER_CSS = """
         border-bottom: 0.5px solid var(--border);
         z-index: -1;
     }
+    /* Nav bars shouldn't stack, unlike the main chat+timeline columns which
+       intentionally go vertical on phones — the hamburger icon and small
+       logo easily fit one row at any width, so force nowrap unconditionally
+       rather than only above the tablet breakpoint. */
+    div.st-key-vera_header div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+    }
+    div.st-key-vera_header div[data-testid="stColumn"] {
+        width: auto !important;
+        min-width: 0 !important;
+    }
     div.st-key-vera_header div[data-testid="stPopover"] button {
         width:32px !important; height:32px !important; padding:0 !important;
         border-radius:var(--radius) !important; border:0.5px solid var(--border) !important;
@@ -163,7 +176,27 @@ HAMBURGER_CSS = """
         font-weight: 700 !important;
         color: var(--text-accent) !important;
     }
-    /* Brand logo (used when assets/veravisa-logo.png exists) */
+    /* Three-zone app-bar layout: hamburger | centered logo | matching empty
+       spacer. The spacer column mirrors the hamburger column's width so the
+       middle column's centered content lands on the true midpoint of the
+       bar, not just the midpoint of the leftover space — this holds at any
+       viewport width since Streamlit's columns are already percentage
+       based, no hardcoded pixel math needed. text-align (not flex
+       justify-content) does the centering: Streamlit's own wrapper divs
+       inside the column stretch to 100% width, so a flex justify-content
+       on the column has nothing narrower than itself to center — but the
+       logo is display:inline-block, so text-align on any block ancestor
+       still centers it correctly. */
+    div.st-key-vera_header [data-testid="stColumn"]:has(.vera-brand-logo),
+    div.st-key-vera_header [data-testid="stColumn"]:has(.st-key-vera_brand_link) {
+        text-align: center;
+    }
+    /* Streamlit wraps inline markdown content (our logo <a>) in a <p> that
+       carries its own text-align: left, which wins over the inherited
+       center above — override it explicitly. */
+    div.st-key-vera_header [data-testid="stColumn"]:has(.vera-brand-logo) p {
+        text-align: center;
+    }
     .vera-brand-logo img {
         height: 30px;
         display: block;
@@ -187,7 +220,7 @@ def render_hamburger_menu(visa_type: str = "f-1"):
     st.markdown(HAMBURGER_CSS, unsafe_allow_html=True)
 
     with st.container(key="vera_header"):
-        col1, col2 = st.columns([1, 11], vertical_alignment="center")
+        col1, col2, col3 = st.columns([1, 10, 1], vertical_alignment="center")
         with col1:
             with st.popover("☰"):
                 st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")

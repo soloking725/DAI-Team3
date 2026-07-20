@@ -188,7 +188,7 @@ def render_timeline(steps: list, allow_complete: bool = True, visa_type: str = "
                 f'<div class="{dot_class}"><i class="ti {icon}"></i></div></div>'
                 f'<div class="{card_class}"><div class="vera-step-title-row">'
                 f'<p class="vera-step-title">{step["title"]}</p>'
-                f'<span class="{badge_class}">{_STATUS_LABEL[display_status]}</span></div>'
+                f'<span class="{badge_class}">{_STATUS_LABEL.get(display_status, display_status.title())}</span></div>'
                 f'<p class="vera-step-detail">{step["detail"]}</p></div></div>'
             )
             st.markdown(row_html, unsafe_allow_html=True)
