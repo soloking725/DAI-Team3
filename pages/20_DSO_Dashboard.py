@@ -128,7 +128,7 @@ st.dataframe(
 _csv_buf = io.StringIO()
 _writer = csv.DictWriter(
     _csv_buf,
-    fieldnames=["name", "email", "visa_type", "origin_country", "current_step_key",
+    fieldnames=["user_id", "name", "email", "visa_type", "origin_country", "current_step_key",
                 "current_step_status", "flagged", "updated_at"],
 )
 _writer.writeheader()

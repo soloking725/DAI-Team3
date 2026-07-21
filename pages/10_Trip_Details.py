@@ -21,7 +21,11 @@ st.markdown(get_vera_css(), unsafe_allow_html=True)
 # required in hosted mode. No-op in local mode.
 auth.require_login("Sign in to start your timeline")
 
-render_hamburger_menu(visa_type=get_vera_state().get("profile", {}).get("visa_type") or "f-1")
+state = get_vera_state()
+_profile = state.get("profile", {})
+_trip = state.get("trip_details", {})
+
+render_hamburger_menu(visa_type=_profile.get("visa_type") or "f-1")
 
 st.markdown(
     """
@@ -47,15 +51,30 @@ STUDENT_VISA_TYPES = {"f-1", "j-1", "m-1"}
 
 _, center, _ = st.columns([1, 2, 1])
 with center:
+    _visa_type_values = [v[0] for v in VISA_TYPE_OPTIONS]
+    _visa_index = (
+        _visa_type_values.index(_profile.get("visa_type"))
+        if _profile.get("visa_type") in _visa_type_values else 0
+    )
+    _origin_index = (
+        ORIGIN_OPTIONS.index(_trip.get("origin"))
+        if _trip.get("origin") in ORIGIN_OPTIONS else 0
+    )
+    _school_value = _trip.get("school") or ""
+    _school_index = SCHOOL_OPTIONS.index(_school_value) if _school_value in SCHOOL_OPTIONS else 0
+    _school_other_default = _school_value if _school_index == 0 and _school_value else ""
+
     with st.form("trip_details_form"):
-        name = st.text_input("Your name", placeholder="What should Vera call you?")
+        name = st.text_input(
+            "Your name", value=_profile.get("name") or "", placeholder="What should Vera call you?"
+        )
         visa_type = st.selectbox(
             "Visa type you're pursuing",
-            options=[v[0] for v in VISA_TYPE_OPTIONS],
+            options=_visa_type_values,
             format_func=lambda v: dict(VISA_TYPE_OPTIONS)[v],
-            index=0,
+            index=_visa_index,
         )
-        origin = st.selectbox("Country of origin", options=ORIGIN_OPTIONS, index=0)
+        origin = st.selectbox("Country of origin", options=ORIGIN_OPTIONS, index=_origin_index)
         destination = st.selectbox(
             "Country you're traveling to", options=DESTINATION_COUNTRIES, index=0,
             disabled=True, help="Other destinations aren't supported yet.",
@@ -63,7 +82,7 @@ with center:
         school_choice = st.selectbox(
             "School (if applicable)",
             options=SCHOOL_OPTIONS,
-            index=0,
+            index=_school_index,
             format_func=lambda s: s or "Select your school",
             help="Leave blank if this doesn't apply to your visa type.",
         )
@@ -72,6 +91,7 @@ with center:
         # field wouldn't appear until after submit.
         school_other = st.text_input(
             "If your school isn't listed, type it here",
+            value=_school_other_default,
             placeholder="Your school's name",
         )
 

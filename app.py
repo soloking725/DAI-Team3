@@ -92,10 +92,18 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+_has_profile = bool(_profile.get("name")) and bool(_profile.get("visa_type"))
+
 _, center, _ = st.columns([1, 2, 1])
 with center:
     if st.button("Get started →", use_container_width=False, key="get_started"):
-        st.switch_page("pages/10_Trip_Details.py")
+        # Returning students who already onboarded shouldn't be walked back
+        # through Trip Details — their profile/timeline is already persisted
+        # (per-account in hosted mode, per ?vid= session locally).
+        if _has_profile:
+            st.switch_page("pages/04_Ask_a_Question.py")
+        else:
+            st.switch_page("pages/10_Trip_Details.py")
 
     # Staff entry point. Students never need this, so it's deliberately quiet —
     # but it's the only way into the DSO dashboard, which isn't in the hamburger
