@@ -1,6 +1,6 @@
 """
 Shown when a user's visa type or destination isn't one Vera has full
-content for yet (currently: F-1/J-1/M-1 to the United States).
+content for yet (currently: F-1 to the United States).
 Page: 16_Other_Visa_Coming_Soon.py
 """
 import html
@@ -36,7 +36,7 @@ destination_phrase = " and destinations outside the US" if destination and desti
 # piece resolving to "" mid-block would otherwise leave a whitespace-only line,
 # which CommonMark parses as an indented code block (see CLAUDE.md).
 body = (
-    f"{greeting}Vera currently gives full, sourced guidance for F-1, J-1, and M-1 student visas "
+    f"{greeting}Vera currently gives full, sourced guidance for F-1 student visas "
     f"to the United States. {support_phrase}{destination_phrase} is on the roadmap, but isn't ready "
     "yet — Vera won't guess at steps or requirements it can't verify."
 )
@@ -72,11 +72,15 @@ with center:
     st.markdown(
         """
         <p style="font-size:13px;color:var(--text-muted);text-align:center;margin-top:12px">
-            Meanwhile, you can still explore Vera's F-1/J-1/M-1 guidance and forms from the menu,
+            Meanwhile, you can still explore Vera's F-1 guidance and forms from the menu,
             or update your visa type in Settings if this was a mistake.
         </p>
         """,
         unsafe_allow_html=True,
     )
     if st.button("Update my trip details", use_container_width=True):
+        # Explicit request to revisit/change an already-completed profile —
+        # tells Trip Details to show the form instead of its normal
+        # already-onboarded auto-skip straight to the timeline.
+        st.session_state["_editing_trip_details"] = True
         st.switch_page("pages/10_Trip_Details.py")

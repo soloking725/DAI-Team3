@@ -44,19 +44,25 @@ if hosted:
     messages_block = """
       <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;
                   padding:16px 18px;margin-top:12px">
-        <p style="font-weight:500;margin:0 0 6px">Messages and announcements</p>
+        <p style="font-weight:500;margin:0 0 6px">Messages, announcements, and reminders</p>
         <p style="font-size:13px;color:var(--text-secondary);margin:0">
-          Direct messages between you and your DSO, and school-wide announcements your DSO
-          posts, are stored in the same database and visible to both of you (announcements
-          are visible to everyone at your school). We also keep a basic audit log of actions
-          like logins, roster views, and step overrides, so there's a record of who accessed
-          or changed what.
+          Direct messages between you and your DSO are visible to both of you. Announcements
+          and events, and any custom reminders (e.g. a course-reporting deadline) your DSO
+          posts for your school, are visible to everyone at your school — nothing in them is
+          specific to you individually. We also keep a basic audit log of actions like logins,
+          roster views, and step overrides, so there's a record of who accessed or changed what.
         </p>
       </div>
     """
     session_note = (
         "Signing out clears your session on this device; your account data stays in your "
-        "school's database until you or your DSO deletes it."
+        "school's database until it's deleted. You can permanently delete your own account "
+        "at any time from Settings — this is available to you regardless of whether your "
+        "school requires you to use Vera. When your school marks you graduated, your "
+        "individual record is deleted the same way, after saving anonymized cohort stats "
+        "(visa type, origin country, final step reached, whether you had flagged "
+        "circumstances) with no name, email, or account id attached — so your school can "
+        "learn from patterns without keeping an identifiable record of you specifically."
     )
 else:
     intro = "Vera doesn't use accounts or logins right now. Here's what's actually stored, and where."

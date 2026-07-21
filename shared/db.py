@@ -24,6 +24,7 @@ callers fall back to local-file persistence — the app still runs.
 
 from __future__ import annotations
 
+import datetime
 import logging
 from typing import Any, Optional
 
@@ -106,6 +107,19 @@ def set_college_guide_url(college_id: str, guide_pdf_url: str) -> None:
     if client is None:
         return
     client.table("colleges").update({"guide_pdf_url": guide_pdf_url}).eq(
+        "id", college_id
+    ).execute()
+
+
+def set_college_guide_steps(college_id: str, steps: list) -> None:
+    """Store the steps the DSO extracted from the school's guide PDF
+    (see shared/pdf_guide.py), once per college. Every student at this
+    college inherits these automatically (pages/04_Ask_a_Question.py)
+    instead of each uploading and extracting their own copy."""
+    client = get_client()
+    if client is None:
+        return
+    client.table("colleges").update({"guide_steps": steps}).eq(
         "id", college_id
     ).execute()
 
@@ -230,6 +244,84 @@ def delete_state(user_id: str) -> None:
     ).eq("user_id", user_id).execute()
 
 
+def delete_student_account(user_id: str, college_id: str) -> bool:
+    """Permanently remove a student's account and every row referencing them
+    (messages, audit log entries, the students row, the users row itself).
+
+    Always available on request — self-service from Settings, or as part of
+    graduate_and_anonymize() below — regardless of whether the student's
+    school requires them to use Vera. A school mandating use of the tool
+    doesn't require Vera to keep the student's data forever; it isn't the
+    system of record for SEVIS compliance (that's the DSO's own SEVIS access).
+
+    Scoped to college_id so a caller can only delete a student that actually
+    belongs to the acting DSO's (or the student's own) college.
+    """
+    client = get_client()
+    if client is None:
+        return False
+    row = (
+        client.table("users").select("id,college_id,role")
+        .eq("id", user_id).limit(1).execute()
+    )
+    if not row.data or row.data[0]["college_id"] != college_id or row.data[0]["role"] != "student":
+        return False
+    # messages/audit_logs reference users(id) without ON DELETE CASCADE, so
+    # they have to go first or the final users delete would hit a FK violation.
+    client.table("messages").delete().or_(
+        f"sender_id.eq.{user_id},recipient_id.eq.{user_id}"
+    ).execute()
+    client.table("audit_logs").delete().eq("actor_id", user_id).execute()
+    client.table("students").delete().eq("user_id", user_id).execute()
+    client.table("users").delete().eq("id", user_id).execute()
+    return True
+
+
+def record_graduation_aggregate(
+    college_id: str, visa_type: Optional[str], origin_country: Optional[str],
+    final_step_key: Optional[str], had_flagged_circumstances: bool,
+) -> None:
+    """Insert one anonymous cohort-stats row — no name/email/user_id — see
+    migrations/004_graduation_aggregates.sql."""
+    client = get_client()
+    if client is None:
+        return
+    client.table("graduation_aggregates").insert({
+        "college_id": college_id,
+        "visa_type": visa_type,
+        "origin_country": origin_country,
+        "final_step_key": final_step_key,
+        "had_flagged_circumstances": had_flagged_circumstances,
+        "cohort_year": datetime.date.today().year,
+    }).execute()
+
+
+def graduate_and_anonymize(user_id: str, college_id: str) -> bool:
+    """DSO-triggered: record this student's anonymized aggregate stats, then
+    permanently delete their individual account in the same operation — so a
+    school keeps pattern-level cohort data to learn from without retaining an
+    identifiable record of any one student after they leave."""
+    client = get_client()
+    if client is None:
+        return False
+    res = (
+        client.table("students")
+        .select("visa_type,origin_country,current_step_key,extenuating_flags")
+        .eq("user_id", user_id).eq("college_id", college_id).limit(1).execute()
+    )
+    if not res.data:
+        return False
+    s = res.data[0]
+    record_graduation_aggregate(
+        college_id,
+        s.get("visa_type"),
+        s.get("origin_country"),
+        s.get("current_step_key"),
+        bool((s.get("extenuating_flags") or {}).get("categories")),
+    )
+    return delete_student_account(user_id, college_id)
+
+
 # ---------------------------------------------------------------------------
 # DSO dashboard queries
 # ---------------------------------------------------------------------------
@@ -319,30 +411,95 @@ def dso_override_step(
 
 
 # ---------------------------------------------------------------------------
-# Announcements (DSO -> students, pulled on page load)
+# Announcements (DSO -> students, pulled on page load) — either a plain
+# undated announcement, or an event (info session, Q&A) tagged with event_at.
 # ---------------------------------------------------------------------------
-def post_announcement(college_id: str, author_id: str, body: str) -> None:
+def post_announcement(college_id: str, author_id: str, body: str, event_at: Optional[str] = None) -> None:
+    """event_at, if given, is an ISO 8601 timestamp string — makes this an event."""
     client = get_client()
     if client is None:
         return
-    client.table("announcements").insert(
-        {"college_id": college_id, "author_id": author_id, "body": body}
-    ).execute()
+    row = {"college_id": college_id, "author_id": author_id, "body": body}
+    if event_at:
+        row["event_at"] = event_at
+    client.table("announcements").insert(row).execute()
 
 
 def list_announcements(college_id: str, limit: int = 10) -> list[dict]:
+    """Most recent announcements/events, newest-posted first (see list_upcoming_events
+    for events specifically, sorted by when they happen rather than when posted)."""
     client = get_client()
     if client is None:
         return []
     res = (
         client.table("announcements")
-        .select("body,created_at")
+        .select("body,event_at,created_at")
         .eq("college_id", college_id)
         .order("created_at", desc=True)
         .limit(limit)
         .execute()
     )
     return res.data or []
+
+
+def list_upcoming_events(college_id: str, limit: int = 10) -> list[dict]:
+    """Announcements tagged with a future event_at (info sessions, Q&As),
+    soonest first — a student-facing "what's coming up" list distinct from
+    the general reverse-chronological announcement feed."""
+    client = get_client()
+    if client is None:
+        return []
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    res = (
+        client.table("announcements")
+        .select("body,event_at,created_at")
+        .eq("college_id", college_id)
+        .gte("event_at", now)
+        .order("event_at", desc=False)
+        .limit(limit)
+        .execute()
+    )
+    return res.data or []
+
+
+# ---------------------------------------------------------------------------
+# Custom reminders — the generic version of the hardcoded visa/passport
+# expiration reminders (shared/reminders.py) a DSO can author for anything
+# else students need to be nudged about (reporting enrolled courses, OPT
+# unemployment-limit tracking, program-extension deadlines, etc). Still
+# in-account only — no email/SMS transport exists in this app yet.
+# ---------------------------------------------------------------------------
+def create_custom_reminder(college_id: str, author_id: str, title: str, detail: str, due_date: str) -> None:
+    """due_date is an ISO date string ("YYYY-MM-DD")."""
+    client = get_client()
+    if client is None:
+        return
+    client.table("custom_reminders").insert({
+        "college_id": college_id, "author_id": author_id,
+        "title": title, "detail": detail, "due_date": due_date,
+    }).execute()
+
+
+def list_custom_reminders(college_id: str, limit: int = 50) -> list[dict]:
+    client = get_client()
+    if client is None:
+        return []
+    res = (
+        client.table("custom_reminders")
+        .select("id,title,detail,due_date,created_at")
+        .eq("college_id", college_id)
+        .order("due_date", desc=False)
+        .limit(limit)
+        .execute()
+    )
+    return res.data or []
+
+
+def delete_custom_reminder(reminder_id: str, college_id: str) -> None:
+    client = get_client()
+    if client is None:
+        return
+    client.table("custom_reminders").delete().eq("id", reminder_id).eq("college_id", college_id).execute()
 
 
 # ---------------------------------------------------------------------------
@@ -435,3 +592,60 @@ def write_audit(actor_id: str, action: str, target_id: Optional[str] = None,
         ).execute()
     except Exception as e:  # audit writes must never break a user action
         logger.warning("audit write failed (%s): %s", action, e)
+
+
+# ---------------------------------------------------------------------------
+# Chat rate limiting (persisted, hosted mode only — see
+# migrations/006_chat_rate_limits.sql for why this exists alongside the
+# session-only check in shared/chat_panel.py)
+# ---------------------------------------------------------------------------
+def check_and_increment_chat_rate_limit(
+    user_id: str, max_requests: int, window_seconds: float
+) -> tuple[bool, int]:
+    """Fixed-window rate limit keyed by a durable user_id instead of the
+    ephemeral st.session_state used elsewhere, so it survives a new browser
+    tab/session. Returns (allowed, seconds_to_wait_if_not_allowed).
+
+    Fixed window, not sliding: simpler, and a user could in theory send up to
+    ~2x max_requests straddling a window boundary. Accepted tradeoff for an
+    abuse-prevention cost control, not a strict SLA. Also not perfectly
+    atomic (read-then-write, no DB-side transaction) — truly concurrent
+    requests could slip a couple extra through — but this closes the "new tab
+    resets my counter for free" gap the in-memory check can't.
+    """
+    client = get_client()
+    if client is None:
+        return True, 0  # local mode: no durable identity to key on
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    res = (
+        client.table("chat_rate_limits")
+        .select("window_start,request_count")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    row = res.data[0] if res.data else None
+
+    if row is None:
+        client.table("chat_rate_limits").insert(
+            {"user_id": user_id, "window_start": now.isoformat(), "request_count": 1}
+        ).execute()
+        return True, 0
+
+    window_start = datetime.datetime.fromisoformat(row["window_start"].replace("Z", "+00:00"))
+    elapsed = (now - window_start).total_seconds()
+
+    if elapsed >= window_seconds:
+        client.table("chat_rate_limits").update(
+            {"window_start": now.isoformat(), "request_count": 1}
+        ).eq("user_id", user_id).execute()
+        return True, 0
+
+    if row["request_count"] >= max_requests:
+        return False, int(window_seconds - elapsed)
+
+    client.table("chat_rate_limits").update(
+        {"request_count": row["request_count"] + 1}
+    ).eq("user_id", user_id).execute()
+    return True, 0

@@ -5,6 +5,7 @@ chat experience. Reuses the same RAG + safeguard pipeline as the original
 Ask a Question page.
 """
 
+import html
 import logging
 import time
 
@@ -21,7 +22,30 @@ from shared.safeguards import (
     extract_visa_type,
 )
 from shared.chatbot import call_qwen_api
-from shared.config import MAX_INPUT_LENGTH, RATE_LIMIT_SECONDS, RATE_LIMIT_MAX_REQUESTS
+from shared.config import (
+    MAX_INPUT_LENGTH,
+    MIN_SECONDS_BETWEEN_QUERIES,
+    RATE_LIMIT_SECONDS,
+    RATE_LIMIT_MAX_REQUESTS,
+)
+
+SIGN_IN_REQUIRED_MESSAGE = "Please sign in to chat with Vera."
+
+
+def _llm_requires_login() -> bool:
+    """True when this is a hosted deployment and nobody is signed in.
+
+    Local mode has no accounts at all (get_current_user() always returns a
+    synthetic user), so this is only ever True in hosted mode for an
+    anonymous visitor. Checked both where the panel renders its input and
+    again at the actual call_qwen_api() site in _process_pending_question,
+    so the LLM can't fire without a signed-in user even if some future
+    caller renders this panel without going through render_floating_chat()'s
+    own gate.
+    """
+    from shared import auth, config
+
+    return config.is_supabase_configured() and not auth.is_logged_in()
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +108,15 @@ def _process_pending_question():
         return
 
     question = st.session_state.pop("pending_question")
+
+    if _llm_requires_login():
+        st.session_state.chat_history.append({"role": "user", "content": question})
+        st.session_state.chat_history.append({
+            "role": "assistant", "content": SIGN_IN_REQUIRED_MESSAGE, "warnings": [],
+        })
+        st.session_state.is_processing = False
+        st.rerun(scope="fragment")
+
     try:
         with st.spinner("Searching official sources..."):
             is_continuation = (
@@ -188,11 +221,18 @@ def render_chat_panel():
 
         for msg in st.session_state.chat_history:
             css_class = "vera-chat-msg-user" if msg["role"] == "user" else "vera-chat-msg-assistant"
-            warning_html = "".join(f'<div class="vera-chat-warning">{w}</div>' for w in msg.get("warnings", []))
+            # msg["content"] is either raw user input or LLM output — neither is
+            # trusted HTML, so escape before interpolating into unsafe_allow_html.
+            content = html.escape(msg["content"])
+            warning_html = "".join(f'<div class="vera-chat-warning">{html.escape(w)}</div>' for w in msg.get("warnings", []))
             st.markdown(
-                f'<div class="vera-chat-msg {css_class}">{msg["content"]}{warning_html}</div>',
+                f'<div class="vera-chat-msg {css_class}">{content}{warning_html}</div>',
                 unsafe_allow_html=True,
             )
+
+    if _llm_requires_login():
+        st.info(SIGN_IN_REQUIRED_MESSAGE)
+        return
 
     with st.form("vera_chat_form", clear_on_submit=True):
         user_input = st.text_input(
@@ -208,6 +248,18 @@ def render_chat_panel():
         question = user_input.strip()
 
         now = time.time()
+        if (
+            st.session_state.request_timestamps
+            and now - st.session_state.request_timestamps[-1] < MIN_SECONDS_BETWEEN_QUERIES
+        ):
+            st.session_state.chat_history.append({"role": "user", "content": question})
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": "Please wait a couple seconds before sending another question.",
+                "warnings": [f"Minimum {MIN_SECONDS_BETWEEN_QUERIES:.0f}s between questions."],
+            })
+            st.rerun(scope="fragment")
+
         st.session_state.request_timestamps = [
             ts for ts in st.session_state.request_timestamps if now - ts < RATE_LIMIT_SECONDS
         ]
@@ -222,6 +274,28 @@ def render_chat_panel():
             st.rerun(scope="fragment")
 
         st.session_state.request_timestamps.append(now)
+
+        # Persisted, cross-session check for hosted mode — the two checks
+        # above only guard against abuse within *this* session; a logged-in
+        # student opening a new tab gets a fresh, empty session_state for
+        # free. This is keyed by the durable user_id instead, so it survives
+        # that (see migrations/006_chat_rate_limits.sql). No-op in local mode.
+        from shared import auth, config, db
+
+        if config.is_supabase_configured():
+            user = auth.get_current_user()
+            if user and user.get("id"):
+                allowed, wait_time = db.check_and_increment_chat_rate_limit(
+                    user["id"], RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_SECONDS
+                )
+                if not allowed:
+                    st.session_state.chat_history.append({"role": "user", "content": question})
+                    st.session_state.chat_history.append({
+                        "role": "assistant",
+                        "content": "You've reached the rate limit. Please wait before asking another question.",
+                        "warnings": [f"Rate limit: max {RATE_LIMIT_MAX_REQUESTS} requests per {RATE_LIMIT_SECONDS:.0f}s. Wait {wait_time}s."],
+                    })
+                    st.rerun(scope="fragment")
 
         is_legal, flagged = classify_input(question)
         if is_legal:

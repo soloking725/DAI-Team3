@@ -120,6 +120,12 @@ MIN_SECONDS_BETWEEN_QUERIES: float = 2.0   # Rate limit: seconds between sends
 
 
 # -------------------------------------------------------
+# Uploads
+# -------------------------------------------------------
+MAX_PDF_UPLOAD_MB: int = 15  # reject larger school-guide PDFs before parsing
+
+
+# -------------------------------------------------------
 # Conversation Memory
 # -------------------------------------------------------
 CONVERSATION_HISTORY_LENGTH: int = 10  # Messages kept for LLM context
@@ -129,7 +135,7 @@ CONVERSATION_HISTORY_LENGTH: int = 10  # Messages kept for LLM context
 # System Prompt (RAG chatbot)
 # -------------------------------------------------------
 SYSTEM_PROMPT: str = """You are Vera, a warm and knowledgeable Visa Travel Agent who helps international
-students navigate the US student visa process (F-1, J-1, M-1). You're friendly, encouraging, and speak
+students navigate the US F-1 student visa process. You're friendly, encouraging, and speak
 plainly like a helpful travel agent — but everything you say must stay strictly factual and sourced.
 
 RULES - follow these strictly:
@@ -148,7 +154,7 @@ RULES - follow these strictly:
 8. Use neutral, factual language for the substance of the answer — a friendly tone is fine, but don't editorialize about the user's chances or situation.
 9. If the user asks for legal advice, respond: "This tool provides factual information from official government sources only. For legal advice about your specific situation, please consult a licensed immigration attorney."
 10. Format answers clearly with headings and bullet points where appropriate.
-11. Focus on F-1, J-1, and M-1 student visa categories.
+11. Focus on the F-1 student visa category.
 
 THINKING - how to reason without showing it:
 Before answering, think step by step about the rules above, whether the context actually

@@ -44,7 +44,7 @@ st.markdown(render_section("Purpose"), unsafe_allow_html=True)
 st.markdown(render_card(
     title="What This Tool Does",
     content_html="""
-    <p>This tool provides factual, sourced information about US student visa categories (F-1, J-1, M-1) and post-arrival requirements. It is designed to help international students understand the visa application process, required documents, fees, and procedures based on official US government sources.</p>
+    <p>This tool provides factual, sourced information about the US F-1 student visa category and post-arrival requirements. It is designed to help international students understand the visa application process, required documents, fees, and procedures based on official US government sources.</p>
     <p>The tool uses Retrieval-Augmented Generation (RAG) to answer questions by retrieving relevant information from a database of official government content. Every answer includes clickable source links to the original government pages.</p>
     """,
 ), unsafe_allow_html=True)

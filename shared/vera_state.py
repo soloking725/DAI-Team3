@@ -18,13 +18,17 @@ DEFAULT_VERA_STATE = {
     },
     "profile": {
         "name": "",
-        "visa_type": "",    # "f-1" | "j-1" | "m-1" | "h-1b" | "other"
+        "visa_type": "",    # "f-1" | "h-1b" | "other"
     },
     "extenuating_circumstances": {
         "categories": [],   # subset of shared.circumstances.CIRCUMSTANCE_CATEGORIES ids
         "notes": "",
     },
     "timeline": [],     # list of step dicts (see shared/timeline_data.py)
+    "post_visa": {
+        "visa_expiration": "",      # ISO date string "YYYY-MM-DD", student-entered
+        "passport_expiration": "",  # ISO date string "YYYY-MM-DD", student-entered
+    },
 }
 
 
@@ -46,6 +50,7 @@ def init_vera_state():
     # Backfill keys added after some sessions were already persisted to disk.
     state.setdefault("profile", dict(DEFAULT_VERA_STATE["profile"]))
     state.setdefault("extenuating_circumstances", dict(DEFAULT_VERA_STATE["extenuating_circumstances"]))
+    state.setdefault("post_visa", dict(DEFAULT_VERA_STATE["post_visa"]))
     st.session_state.vera = state
     st.session_state["_vera_loaded_key"] = key
 
@@ -77,6 +82,17 @@ def set_profile(name: str, visa_type: str):
 def set_extenuating_circumstances(categories: list, notes: str):
     state = get_vera_state()
     state["extenuating_circumstances"] = {"categories": categories, "notes": notes}
+    persist_vera_state()
+
+
+def set_post_visa_dates(visa_expiration: str, passport_expiration: str):
+    """visa_expiration/passport_expiration are ISO date strings ("YYYY-MM-DD")
+    or "" if unset — see shared/reminders.py for what's derived from these."""
+    state = get_vera_state()
+    state["post_visa"] = {
+        "visa_expiration": visa_expiration or "",
+        "passport_expiration": passport_expiration or "",
+    }
     persist_vera_state()
 
 

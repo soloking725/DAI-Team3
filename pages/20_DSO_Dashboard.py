@@ -7,6 +7,7 @@ reserved for admin/DSO pages; this page is intentionally not in the hamburger
 menu, so students never see it. Requires hosted mode (Supabase configured).
 """
 import csv
+import datetime
 import io
 
 import streamlit as st
@@ -17,6 +18,8 @@ from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
 from shared import config, auth, db
 from shared.timeline_data import TIMELINE_TEMPLATES
+from shared.pdf_guide import extract_steps_from_pdf, PdfExtractionError
+from shared.config import MAX_PDF_UPLOAD_MB
 
 st.set_page_config(page_icon=FAVICON, page_title="DSO Dashboard - Vera", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -65,6 +68,51 @@ if st.button("Save guide link") and guide_url.strip():
     db.set_college_guide_url(college_id, guide_url.strip())
     st.success("Saved.")
     st.rerun()
+
+st.markdown("#### Extra steps from your guide PDF")
+st.caption(
+    "Upload your school's visa guide once here — Vera extracts any explicit "
+    "action items and every student at your college gets them added to their "
+    "timeline automatically, instead of each student uploading their own copy."
+)
+existing_guide_steps = current_college.get("guide_steps") or []
+if existing_guide_steps:
+    st.caption(f"Currently live for your students: {len(existing_guide_steps)} step(s).")
+    with st.expander("View current steps"):
+        for s in existing_guide_steps:
+            st.markdown(f"- **{s['title']}** — {s['detail']}")
+
+dso_guide_pdf = st.file_uploader("Guide PDF", type=["pdf"], key="_dso_guide_pdf")
+if dso_guide_pdf is not None and st.session_state.get("_dso_last_guide_name") != dso_guide_pdf.name:
+    if dso_guide_pdf.size > MAX_PDF_UPLOAD_MB * 1024 * 1024:
+        st.session_state["_dso_extracted_steps"] = None
+        st.error(f"That PDF is too large (max {MAX_PDF_UPLOAD_MB}MB). Try a smaller file.")
+    else:
+        with st.spinner("Reading the guide..."):
+            try:
+                st.session_state["_dso_extracted_steps"] = extract_steps_from_pdf(dso_guide_pdf)
+            except PdfExtractionError as e:
+                st.session_state["_dso_extracted_steps"] = None
+                st.error(str(e))
+    st.session_state["_dso_last_guide_name"] = dso_guide_pdf.name
+
+_dso_extracted = st.session_state.get("_dso_extracted_steps")
+if _dso_extracted:
+    st.caption("Found these steps — uncheck any that shouldn't apply to every student:")
+    _selected_guide_steps = []
+    for step in _dso_extracted:
+        page_note = f", per page {step['page_hint']}" if step.get("page_hint") else ""
+        checked = st.checkbox(
+            step["title"], value=True, key=f"_dso_guide_step_{step['id']}",
+            help=f"{step['detail']}{page_note}",
+        )
+        if checked:
+            _selected_guide_steps.append(step)
+    if st.button("Publish to all students", type="primary") and _selected_guide_steps:
+        db.set_college_guide_steps(college_id, _selected_guide_steps)
+        st.success(f"Published {len(_selected_guide_steps)} step(s) to every student at your college.")
+        st.session_state["_dso_extracted_steps"] = None
+        st.rerun()
 
 roster = db.list_students(college_id)
 if not roster:
@@ -125,6 +173,16 @@ st.dataframe(
     hide_index=True,
 )
 
+def _csv_formula_safe(value):
+    """Prefix values that Excel/Sheets would interpret as a formula (e.g. a
+    student setting their display name to '=HYPERLINK(...)') with a leading
+    apostrophe so they're treated as inert text when the DSO opens the CSV."""
+    text = str(value)
+    if text and text[0] in ("=", "+", "-", "@"):
+        return "'" + text
+    return text
+
+
 _csv_buf = io.StringIO()
 _writer = csv.DictWriter(
     _csv_buf,
@@ -132,7 +190,9 @@ _writer = csv.DictWriter(
                 "current_step_status", "flagged", "updated_at"],
 )
 _writer.writeheader()
-_writer.writerows(filtered)
+_writer.writerows(
+    {k: _csv_formula_safe(v) for k, v in row.items()} for row in filtered
+)
 st.download_button(
     "Export shown roster (CSV)",
     data=_csv_buf.getvalue(),
@@ -164,6 +224,28 @@ if sel_step and st.button("Apply override"):
         st.warning(f"No change made — {name_by_id[sel_student]} has no '{sel_step}' step yet.")
     st.rerun()
 
+# --- Graduation: anonymize + delete --------------------------------------
+st.markdown("### Mark a student graduated")
+st.caption(
+    "Records this student's anonymized cohort stats (visa type, origin country, final "
+    "step reached, whether they had flagged circumstances — no name, email, or account "
+    "id) for your school to learn from, then permanently deletes their individual "
+    "account. This can't be undone."
+)
+grad_student = st.selectbox(
+    "Student", list(name_by_id), format_func=lambda uid: name_by_id[uid], key="_grad_student"
+)
+confirm_grad = st.checkbox(
+    "I understand this permanently deletes this student's account after archiving anonymized stats.",
+    key="_grad_confirm",
+)
+if st.button("Mark graduated & anonymize", disabled=not confirm_grad):
+    if db.graduate_and_anonymize(grad_student, college_id):
+        st.success(f"Archived anonymized stats for {name_by_id[grad_student]} and deleted their account.")
+        st.rerun()
+    else:
+        st.error("Couldn't complete this — the student may already be gone.")
+
 # --- Direct message to a student ------------------------------------------
 st.markdown("### Message a student")
 st.caption(
@@ -181,14 +263,84 @@ if st.button("Send message") and msg_body.strip():
     db.send_message(college_id, user["id"], msg_student, msg_body.strip())
     st.rerun()
 
-# --- Announcements -------------------------------------------------------
-st.markdown("### Post an announcement")
-st.caption("Students see the latest announcements on their timeline.")
+# --- Announcements & events -----------------------------------------------
+st.markdown("### Post an announcement or event")
+st.caption(
+    "Students see these on their timeline. Check the box below to post it as a dated "
+    "event (an info session, a Q&A) instead of a plain announcement — events show "
+    "separately, soonest first."
+)
 body = st.text_area("Message", placeholder="e.g. Reminder: SEVIS fee is due before your interview.")
-if st.button("Post announcement") and body.strip():
-    db.post_announcement(college_id, user["id"], body.strip())
+is_event = st.checkbox("This is an event (has a date/time)")
+event_at_iso = None
+if is_event:
+    ec1, ec2 = st.columns(2)
+    with ec1:
+        event_date = st.date_input("Event date", value=datetime.date.today())
+    with ec2:
+        event_time = st.time_input("Event time", value=datetime.time(12, 0))
+    event_at_iso = datetime.datetime.combine(event_date, event_time).isoformat()
+if st.button("Post") and body.strip():
+    db.post_announcement(college_id, user["id"], body.strip(), event_at=event_at_iso)
     st.success("Posted.")
     st.rerun()
 
 for a in db.list_announcements(college_id, limit=5):
-    st.markdown(f"- **{a['created_at'][:10]}** — {a['body']}")
+    when = f" · event: {a['event_at'][:16].replace('T', ' ')}" if a.get("event_at") else ""
+    st.markdown(f"- **{a['created_at'][:10]}**{when} — {a['body']}")
+
+# --- Custom reminders --------------------------------------------------
+st.markdown("### Post a reminder for students")
+st.caption(
+    "For anything specific your school needs students to do by a date — reporting "
+    "enrolled courses, an OPT check-in, a program-extension deadline. Shows as an "
+    "in-account banner as the due date approaches, same as the built-in visa/passport "
+    "expiration reminders. In-account only — no email/SMS yet."
+)
+_reminder_templates = {
+    "Custom...": ("", ""),
+    "Report your enrolled courses": (
+        "Report your enrolled courses",
+        "Confirm your current course load with your DSO so your SEVIS enrollment record stays accurate.",
+    ),
+    "OPT unemployment limit check-in": (
+        "OPT unemployment limit check-in",
+        "F-1 OPT allows a maximum of 90 days of unemployment during your initial 12-month OPT period (150 days total if you have a STEM extension). Report your employment status to your DSO.",
+    ),
+    "STEM OPT extension filing window": (
+        "STEM OPT extension filing window",
+        "STEM OPT extensions must be filed before your current OPT authorization expires — start the I-983 Training Plan process with your DSO now.",
+    ),
+    "Program extension request": (
+        "Program extension request",
+        "If you won't complete your program by your I-20 end date, request a program extension from your DSO before that date passes.",
+    ),
+    "Get a travel signature before departing": (
+        "Get a travel signature on your I-20",
+        "Your I-20 needs a current travel signature from your DSO before any international travel — it's valid for 1 year (6 months while on OPT).",
+    ),
+}
+_template_choice = st.selectbox("Start from a template (optional)", list(_reminder_templates))
+_tmpl_title, _tmpl_detail = _reminder_templates[_template_choice]
+rc1, rc2 = st.columns(2)
+with rc1:
+    reminder_title = st.text_input("Title", value=_tmpl_title, key="_reminder_title")
+with rc2:
+    reminder_due = st.date_input("Due date", value=datetime.date.today(), key="_reminder_due")
+reminder_detail = st.text_area("Detail", value=_tmpl_detail, key="_reminder_detail")
+if st.button("Post reminder") and reminder_title.strip() and reminder_detail.strip():
+    db.create_custom_reminder(college_id, user["id"], reminder_title.strip(), reminder_detail.strip(), reminder_due.isoformat())
+    st.success("Posted.")
+    st.rerun()
+
+_existing_reminders = db.list_custom_reminders(college_id)
+if _existing_reminders:
+    st.caption("Active reminders:")
+    for r in _existing_reminders:
+        rcol1, rcol2 = st.columns([5, 1])
+        with rcol1:
+            st.markdown(f"- **{r['title']}** — due {r['due_date']}  \n  {r['detail']}")
+        with rcol2:
+            if st.button("Remove", key=f"_rm_reminder_{r['id']}"):
+                db.delete_custom_reminder(r["id"], college_id)
+                st.rerun()

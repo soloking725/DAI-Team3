@@ -17,15 +17,36 @@ st.set_page_config(page_icon=FAVICON, page_title="Tell us about your trip - Vera
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
-# Onboarding is the first point where we persist anything, so it's where login is
-# required in hosted mode. No-op in local mode.
-auth.require_login("Sign in to start your timeline")
-
 state = get_vera_state()
 _profile = state.get("profile", {})
 _trip = state.get("trip_details", {})
 
+# Rendered before the login gate below so the nav is always reachable, even
+# from the sign-in screen.
 render_hamburger_menu(visa_type=_profile.get("visa_type") or "f-1")
+
+# Onboarding is the first point where we persist anything, so it's where login is
+# required in hosted mode. No-op in local mode.
+auth.require_login("Sign in to start your timeline")
+
+# app.py's "Get started" button decides where to route a visitor (here vs.
+# straight to the timeline) based on whether they already have a profile —
+# but in hosted mode, before login, that check runs against an anonymous,
+# always-empty state (login hasn't happened yet, so there's no way to know
+# about a returning student's real saved profile). That misroutes every
+# returning student back through onboarding on every fresh session. Now that
+# login has just resolved above, _profile reflects their real saved data, so
+# catch the misroute here: if they already completed this step before, skip
+# straight to their timeline instead of asking them to redo it. The one
+# legitimate reason to see this form again despite already having a profile —
+# explicitly clicking "Update my trip details" from the unsupported-visa-type
+# page — sets _editing_trip_details first, so that path isn't caught by this.
+if (
+    _profile.get("name")
+    and _profile.get("visa_type")
+    and not st.session_state.pop("_editing_trip_details", False)
+):
+    st.switch_page("pages/04_Ask_a_Question.py")
 
 st.markdown(
     """
@@ -42,12 +63,10 @@ st.markdown(
 VISA_TYPE_OPTIONS = [
     ("", "Select your visa type"),
     ("f-1", "F-1 — Academic student visa"),
-    ("j-1", "J-1 — Exchange visitor visa"),
-    ("m-1", "M-1 — Vocational student visa"),
     ("h-1b", "H-1B — Specialty occupation worker"),
     ("other", "Other / not sure yet"),
 ]
-STUDENT_VISA_TYPES = {"f-1", "j-1", "m-1"}
+STUDENT_VISA_TYPES = {"f-1"}
 
 _, center, _ = st.columns([1, 2, 1])
 with center:
@@ -101,7 +120,7 @@ with center:
                         display:flex;gap:10px;align-items:flex-start;margin:4px 0">
                 <i class="ti ti-info-circle" style="font-size:16px;color:var(--text-muted);margin-top:2px"></i>
                 <p style="font-size:13px;color:var(--text-secondary);margin:0">
-                    Vera currently supports F-1, J-1, and M-1 student visas to the United States in full detail.
+                    Vera currently supports F-1 student visas to the United States in full detail.
                     Other visa types and destinations are recognized, but content for them is still on the way.
                 </p>
             </div>

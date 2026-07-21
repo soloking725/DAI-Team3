@@ -7,6 +7,37 @@ import html
 import streamlit as st
 
 
+_REMINDER_STYLE = {
+    "urgent": ("#fff5f5", "#feb2b2", "#c53030", "ti-alert-triangle"),
+    "warning": ("#fffbeb", "#f6e05e", "#975a16", "ti-clock-exclamation"),
+    "notice": ("var(--surface-2)", "var(--border)", "var(--text-secondary)", "ti-bell"),
+}
+
+
+def render_reminders_banner(reminders: list):
+    """Render in-account expiration reminders (see shared/reminders.py).
+
+    Computed fresh from stored dates on every page load — nothing is
+    scheduled or emailed; there's no SMTP configured yet, so this is the
+    only place these surface."""
+    if not reminders:
+        return
+    cards = []
+    for r in reminders:
+        bg, border, text, icon = _REMINDER_STYLE.get(r["urgency"], _REMINDER_STYLE["notice"])
+        cards.append(
+            f'<div style="background:{bg};border:0.5px solid {border};border-left:3px solid {border};'
+            f'border-radius:12px;padding:10px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start">'
+            f'<i class="ti {icon}" style="font-size:16px;color:{text};margin-top:2px"></i>'
+            f'<div><p style="font-weight:500;font-size:13px;color:{text};margin:0 0 2px">{r["title"]}</p>'
+            f'<p style="font-size:12px;color:{text};margin:0">{r["detail"]}</p></div></div>'
+        )
+    st.markdown(
+        f'<div style="max-width:1200px;margin:0 auto 12px;padding:0 1rem">{"".join(cards)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_disclaimer():
     """Render the persistent disclaimer banner."""
     return """
@@ -19,7 +50,7 @@ def render_disclaimer():
 
 
 _VISA_TYPE_NAMES = {
-    "f-1": "F-1", "j-1": "J-1", "m-1": "M-1", "h-1b": "H-1B", "other": "another visa type",
+    "f-1": "F-1", "h-1b": "H-1B", "other": "another visa type",
 }
 
 
@@ -126,8 +157,6 @@ def render_source_citations(sources):
 
 _VISA_TYPE_PAGES = {
     "f-1": "pages/01_F-1_Student_Visa.py",
-    "j-1": "pages/02_J-1_Exchange_Visitor.py",
-    "m-1": "pages/03_M-1_Vocational_Visa.py",
     "h-1b": "pages/16_Other_Visa_Coming_Soon.py",
     "other": "pages/16_Other_Visa_Coming_Soon.py",
 }
@@ -233,6 +262,16 @@ def render_hamburger_menu(visa_type: str = "f-1"):
                 )
                 st.page_link("pages/06_About.py", label="Info", icon=":material/info:")
                 st.page_link(
+                    "pages/17_Interview_Prep.py",
+                    label="Interview prep",
+                    icon=":material/record_voice_over:",
+                )
+                st.page_link(
+                    "pages/18_Document_Checklist.py",
+                    label="Document checklist",
+                    icon=":material/checklist:",
+                )
+                st.page_link(
                     "pages/13_Help_Find_a_Lawyer.py",
                     label="Help (find a lawyer)",
                     icon=":material/balance:",
@@ -288,8 +327,21 @@ def render_floating_chat():
     """Render a real, usable Vera chat widget in a floating bottom-right popover,
     accessible from any page without navigating away. Requires shared/theme.py's
     get_vera_css() to already be loaded on the page (for icons + color tokens).
+
+    In hosted mode this is a no-op for anyone not logged in: several pages that
+    call this (01_F-1_Student_Visa.py, 05_Post_Visa_Guide.py, 06_About.py,
+    17_Interview_Prep.py, 18_Document_Checklist.py) don't gate on auth.require_login()
+    themselves, so without this check an anonymous visitor could reach any of
+    them directly by URL and get a live, LLM-backed chat with no account and no
+    session-spanning rate limit — unbounded anonymous access to a paid API.
+    Local mode has no accounts by design, so the widget still shows for everyone
+    there, matching original prototype behavior.
     """
+    from shared import auth, config
     from shared.chat_panel import render_chat_panel
+
+    if config.is_supabase_configured() and not auth.is_logged_in():
+        return
 
     st.markdown(FLOATING_CHAT_CSS, unsafe_allow_html=True)
     with st.popover("💬", key="vera_floating_chat"):

@@ -48,9 +48,15 @@ def call_qwen_api(user_message: str, context: str, history: Optional[list] = Non
     try:
         from openai import OpenAI
 
+        # Explicit timeout: the SDK default is several minutes, and since this
+        # call runs synchronously inside a Streamlit rerun (some call sites,
+        # e.g. shared/pdf_guide.py's DSO-dashboard upload, aren't wrapped in
+        # @st.fragment), a hung endpoint would otherwise freeze the whole page
+        # indistinguishably from an outage instead of surfacing an error.
         client = OpenAI(
             api_key=QWEN_API_KEY,
             base_url=QWEN_BASE_URL,
+            timeout=30.0,
         )
 
         # Build message history — personalize with a factual user-context line
@@ -115,9 +121,21 @@ def call_qwen_api(user_message: str, context: str, history: Optional[list] = Non
             "error": "openai package not installed",
         }
     except Exception as e:
+        from openai import APITimeoutError, APIConnectionError
+
+        if isinstance(e, (APITimeoutError, APIConnectionError)):
+            logger.warning("Qwen API timed out/unreachable: %s", e)
+            return {
+                "response": "This is taking longer than expected. Please try again in a moment.",
+                "sources": [],
+                "error": "timeout",
+            }
+
+        # Log full detail server-side only — the raw exception text can include
+        # internal hostnames/request metadata that shouldn't reach the browser.
         logger.error("Qwen API call failed: %s", e, exc_info=True)
         return {
-            "response": f"Error calling the API: {str(e)}. Please check your API key and connection.",
+            "response": "Something went wrong reaching the assistant. Please try again shortly.",
             "sources": [],
             "error": str(e),
         }

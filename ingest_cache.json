@@ -10,8 +10,8 @@
     "chunk_count": 4
   },
   "https://www.uscis.gov/": {
-    "hash": "be9aca98816afce9906097a0a40e9e31",
-    "scraped_at": "2026-07-20T14:54:19.405965",
+    "hash": "653901516e1741923cbed64054448216",
+    "scraped_at": "2026-07-21T15:24:21.630228",
     "chunk_count": 3
   },
   "https://studyinthestates.dhs.gov/students/work/obtaining-a-social-security-number": {
@@ -45,8 +45,8 @@
     "chunk_count": 12
   },
   "https://bd.usembassy.gov/visas/": {
-    "hash": "415be70460e9c8de71117b755fde5ec9",
-    "scraped_at": "2026-07-20T14:54:45.421956",
+    "hash": "e3a960b796a8c12f890eb95c3f6f20e0",
+    "scraped_at": "2026-07-21T15:24:24.692888",
     "chunk_count": 25
   },
   "https://mx.usembassy.gov/visas/": {
@@ -80,13 +80,38 @@
     "chunk_count": 26
   },
   "https://pe.usembassy.gov/visas/": {
-    "hash": "976383f620b6b72ea9df6331ddbad316",
-    "scraped_at": "2026-07-20T14:55:02.488167",
+    "hash": "78dc1e5220611197362fa329321cb21c",
+    "scraped_at": "2026-07-21T15:24:28.583623",
     "chunk_count": 36
   },
   "https://jp.usembassy.gov/visas/": {
-    "hash": "4152b81bcba9632ebed209b46db549c7",
-    "scraped_at": "2026-07-20T14:55:04.785697",
-    "chunk_count": 31
+    "hash": "fd881ba39c3a8df91406204fc408893c",
+    "scraped_at": "2026-07-21T15:24:30.904941",
+    "chunk_count": 30
+  },
+  "https://in.usembassy.gov/visas/": {
+    "hash": "1664a523524d7f15928b1903949e8e3c",
+    "scraped_at": "2026-07-21T15:24:33.050736",
+    "chunk_count": 27
+  },
+  "https://china.usembassy-china.org.cn/visas/": {
+    "hash": "8034868b1670cbd6e39e7847fbe408a3",
+    "scraped_at": "2026-07-21T15:24:36.317210",
+    "chunk_count": 18
+  },
+  "https://ng.usembassy.gov/visas/": {
+    "hash": "0ed69294fa8fe1c479a43d7b64654bb0",
+    "scraped_at": "2026-07-21T15:24:38.162908",
+    "chunk_count": 22
+  },
+  "https://br.usembassy.gov/visas/": {
+    "hash": "fa26c788d908ff574132838b04959d6e",
+    "scraped_at": "2026-07-21T15:24:39.918568",
+    "chunk_count": 22
+  },
+  "https://kr.usembassy.gov/visas/": {
+    "hash": "ef4e1d4ed804331db5e8b07e90ad48b8",
+    "scraped_at": "2026-07-21T15:24:42.032485",
+    "chunk_count": 27
   }
 }

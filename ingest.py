@@ -192,6 +192,45 @@ ORIGIN_COUNTRY_SOURCE_URLS = [
         "visa_type": ["F-1", "J-1", "M-1"],
         "origin_country": "Japan",
     },
+    # The remaining five of the 17 pinned COMMON_ORIGIN_COUNTRIES (see
+    # shared/countries.py) used to be hand-authored, static content in
+    # ingest_static.py. Moved to the live scrape pipeline here so they stay
+    # current the same way as the twelve above, instead of going stale.
+    {
+        "url": "https://in.usembassy.gov/visas/",
+        "title": "US Mission India - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "India",
+    },
+    {
+        "url": "https://china.usembassy-china.org.cn/visas/",
+        "title": "US Mission China - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "China",
+    },
+    {
+        "url": "https://ng.usembassy.gov/visas/",
+        "title": "US Mission Nigeria - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Nigeria",
+    },
+    {
+        "url": "https://br.usembassy.gov/visas/",
+        "title": "US Embassy Brazil - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Brazil",
+    },
+    {
+        "url": "https://kr.usembassy.gov/visas/",
+        "title": "US Embassy South Korea - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "South Korea",
+    },
 ]
 
 SOURCE_URLS = SOURCE_URLS + ORIGIN_COUNTRY_SOURCE_URLS
@@ -407,18 +446,22 @@ def run_ingestion(fast=False):
         print(f"Fetching: {source['title']}")
         print(f"  URL: {url}")
 
-        # Fast mode: skip unchanged
-        if fast:
-            h = content_hash(url)
-            if cache.get(url) and cache[url]["hash"] == h:
-                print(f"  [SKIP] Content unchanged\n")
-                skipped += 1
-                continue
-
+        # Whether a page's content has changed can only be known after
+        # fetching it (no ETag/HEAD support here), so --fast still fetches
+        # every page — it skips the (comparatively expensive) chunk + embed +
+        # ChromaDB store step when the content hash matches last run. A URL
+        # new to the cache (e.g. one just added to SOURCE_URLS) always falls
+        # through and gets stored, same as a full run.
         text = fetch_page(url)
         if not text:
             print("  No content retrieved. Skipping.\n")
             errors += 1
+            continue
+
+        h = content_hash(text)
+        if fast and cache.get(url) and cache[url]["hash"] == h:
+            print(f"  [SKIP] Content unchanged\n")
+            skipped += 1
             continue
 
         chunks = chunk_text(text)
@@ -430,7 +473,7 @@ def run_ingestion(fast=False):
 
         # Update cache
         cache[url] = {
-            "hash": content_hash(text),
+            "hash": h,
             "scraped_at": datetime.datetime.now().isoformat(),
             "chunk_count": len(chunks),
         }

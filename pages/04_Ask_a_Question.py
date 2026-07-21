@@ -10,25 +10,28 @@ import streamlit as st
 from shared.branding import FAVICON
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
-from shared.components import render_hamburger_menu, render_disclaimer, render_footer
+from shared.components import render_hamburger_menu, render_disclaimer, render_footer, render_reminders_banner
+from shared.reminders import compute_reminders, compute_custom_reminders
 from shared.chat_panel import render_chat_panel
 from shared.timeline_ui import render_timeline, render_circumstances_card
 from shared.timeline import build_timeline, infer_visa_type, enrich_step_with_origin
-from shared.vera_state import get_vera_state, set_timeline, persist_vera_state
+from shared.vera_state import get_vera_state, set_timeline, add_timeline_steps, persist_vera_state
 from shared import auth, db
 
 st.set_page_config(page_icon=FAVICON, page_title="Your Timeline - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
-# The timeline is per-student persisted state, so it needs a signed-in user in
-# hosted mode. No-op in local mode.
-user = auth.require_login("Sign in to see your timeline")
-
 state = get_vera_state()
 visa_type = infer_visa_type(state["trip_details"], state.get("profile", {}).get("visa_type"))
 
+# Rendered before the login gate below so the nav (and the way back to
+# Home/Privacy/Help) is always reachable, even from the sign-in screen.
 render_hamburger_menu(visa_type=visa_type)
+
+# The timeline is per-student persisted state, so it needs a signed-in user in
+# hosted mode. No-op in local mode.
+user = auth.require_login("Sign in to see your timeline")
 
 name = html.escape((state.get("profile", {}).get("name") or "").strip())
 if name:
@@ -36,12 +39,32 @@ if name:
 
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
 
+college = None
+custom_reminders = []
 if user and user.get("mode") == "hosted" and user.get("college_id"):
     college = db.get_college(user["college_id"])
+    custom_reminders = db.list_custom_reminders(user["college_id"])
     if college and college.get("guide_pdf_url"):
         st.markdown(
             f"📄 [{college.get('name') or 'Your school'}'s visa guide]({college['guide_pdf_url']})"
         )
+
+render_reminders_banner(
+    compute_reminders(state.get("post_visa", {})) + compute_custom_reminders(custom_reminders)
+)
+
+if user and user.get("mode") == "hosted" and user.get("college_id"):
+    events = db.list_upcoming_events(user["college_id"], limit=5)
+    announcements = db.list_announcements(user["college_id"], limit=5)
+    if events or announcements:
+        with st.expander(f"Announcements from {college.get('name') or 'your school'}" if college else "Announcements", expanded=bool(events)):
+            for e in events:
+                when = e["event_at"][:16].replace("T", " ")
+                st.markdown(f"📅 **{when}** — {e['body']}")
+            for a in announcements:
+                if a.get("event_at"):
+                    continue  # already shown above as an event
+                st.markdown(f"- **{a['created_at'][:10]}** — {a['body']}")
 
 circumstances = state.get("extenuating_circumstances", {}).get("categories", [])
 if circumstances:
@@ -53,6 +76,15 @@ if not state["timeline"]:
     # cache (see precompute_timeline_enrichment.py).
     set_timeline(build_timeline(state["trip_details"], state.get("profile", {}).get("visa_type")))
     state = get_vera_state()
+
+# College-wide guide steps the DSO uploaded once for everyone (see
+# pages/20_DSO_Dashboard.py) — dedupes by id, so re-running this is harmless,
+# but gate on a flag anyway to avoid a disk write on every single rerun.
+if college and college.get("guide_steps") and not state.get("_college_guide_applied"):
+    add_timeline_steps(college["guide_steps"])
+    state = get_vera_state()
+    state["_college_guide_applied"] = True
+    persist_vera_state()
 
 # The general per-visa-type detail text is generic (precomputed once, shared
 # across every student — see build_timeline's docstring). The one place the

@@ -12,8 +12,13 @@ stable function signatures.
    a pilot).
 
 2. **Run the schema.** Open the project's SQL editor and paste all of
-   `migrations/001_init.sql`, then run it. Also run `migrations/002_messages.sql`
-   (adds the DSO <-> student direct-messaging table) — same process, run once.
+   `migrations/001_init.sql`, then run it. Also run, in order:
+   `migrations/002_messages.sql` (DSO <-> student direct messaging),
+   `migrations/003_college_guide_steps.sql` (admin-uploaded school guide steps),
+   `migrations/004_graduation_aggregates.sql` (anonymized cohort stats
+   recorded when a DSO marks a student graduated), and
+   `migrations/005_reminders_and_events.sql` (event-tagged announcements plus
+   DSO-authored custom reminders) — same process, run once each.
 
 3. **Seed your colleges.** A user's email domain decides which college they join,
    so you can run more than one — e.g. a throwaway test college alongside the

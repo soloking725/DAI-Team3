@@ -10,16 +10,19 @@ from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
 from shared.persistence import get_or_create_session_id, delete_session
 from shared.vera_state import get_vera_state
-from shared import auth, config
+from shared import auth, config, db
 
 st.set_page_config(page_icon=FAVICON, page_title="Settings - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
 hosted = config.is_supabase_configured()
-user = auth.require_login("Sign in to see your settings") if hosted else auth.get_current_user()
 
+# Rendered before the login gate below so the nav is always reachable, even
+# from the sign-in screen.
 render_hamburger_menu(visa_type=get_vera_state().get("profile", {}).get("visa_type") or "f-1")
+
+user = auth.require_login("Sign in to see your settings") if hosted else auth.get_current_user()
 
 st.markdown(
     """
@@ -77,3 +80,29 @@ with center:
         for k in ("vera", "chat_history", "conversation_history", "request_timestamps", "_vera_loaded_key"):
             st.session_state.pop(k, None)
         st.switch_page("app.py")
+
+if hosted and user and user.get("role") == "student":
+    with center:
+        st.markdown(
+            """
+            <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;
+                        padding:16px 18px;margin-top:16px">
+              <p style="font-weight:500;margin:0 0 6px">Permanently delete my account</p>
+              <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">
+                Removes your account and every record tied to it — trip details, timeline,
+                messages with your DSO — from your school's database. This is different from
+                "Reset my progress" above, which only clears your data but keeps your account.
+                This can't be undone, and is available to you regardless of whether your school
+                requires you to use Vera.
+              </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        confirm_delete = st.checkbox("I understand this permanently deletes my account and can't be undone.")
+        if st.button("Permanently delete my account", use_container_width=True, disabled=not confirm_delete):
+            if db.delete_student_account(user["id"], user["college_id"]):
+                auth.logout()
+                st.switch_page("app.py")
+            else:
+                st.error("Couldn't delete your account — please contact your school's DSO.")

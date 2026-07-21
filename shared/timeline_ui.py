@@ -115,6 +115,9 @@ def render_step_details(step: dict, visa_type: str = "f-1"):
     st.markdown(STEP_DETAILS_CARD_CSS, unsafe_allow_html=True)
     parts = []
 
+    if step.get("static_detail_html"):
+        parts.append(step["static_detail_html"])
+
     if step.get("category") == "interview":
         retrieval = retrieve_context(
             "visa interview preparation topics", top_k=3, visa_type=visa_type,
@@ -193,7 +196,11 @@ def render_timeline(steps: list, allow_complete: bool = True, visa_type: str = "
             )
             st.markdown(row_html, unsafe_allow_html=True)
 
-            has_details = step.get("category") == "interview" or step.get("form_url")
+            has_details = (
+                step.get("category") == "interview"
+                or step.get("form_url")
+                or step.get("static_detail_html")
+            )
             if has_details:
                 open_key = f"vera_step_open_{step['id']}"
                 is_open = st.session_state.get(open_key, False)

@@ -84,6 +84,7 @@ def build_timeline(trip_details: dict, selected_visa_type: str = "") -> list:
             "category": step["category"],
             "form_url": step.get("form_url"),
             "form_name": step.get("form_name"),
+            "static_detail_html": step.get("static_detail_html"),
             "status": "upcoming",
             "enriched": True,
         }
