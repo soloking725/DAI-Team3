@@ -92,7 +92,15 @@ def _restore_session_from_cookie() -> tuple[dict | None, bool]:
         if retries < _COOKIE_READY_MAX_RERUNS:
             st.session_state["_cookie_wait_reruns"] = retries + 1
             st.rerun()
-        return None, False
+        # Retries exhausted — per the docstring, this now *is* the definitive
+        # answer (give up, no session), not an indefinite "try again later".
+        # Returning False here (as this used to) meant get_current_user()
+        # never set _cookie_restore_done, so every later auth check in the
+        # same run — and every run after — re-instantiated CookieManager(),
+        # which crashes with StreamlitDuplicateElementKey the moment two auth
+        # checks land in one script run (e.g. render_hamburger_menu's
+        # is_logged_in() followed by a page's own require_login()).
+        return None, True
 
     token = cookies.get(_SESSION_COOKIE_NAME)
     if not token:

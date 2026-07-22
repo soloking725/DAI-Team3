@@ -429,16 +429,35 @@ def list_students(college_id: str) -> list[dict]:
         .eq("role", "student")
         .execute()
     ).data or []
-    students = (
-        client.table("students")
-        .select(
-            "user_id,visa_type,origin_country,current_step_key,current_step_status,"
-            "extenuating_flags,updated_at,entering_year,graduation_year,"
-            "visa_expiration,passport_expiration"
+    # visa_expiration/passport_expiration (migrations/010) may not be applied
+    # yet on a given deployment — fall back to the columns that have always
+    # existed rather than hard-erroring the whole roster (and everything
+    # after it on the page) until the migration is run.
+    _base_select = (
+        "user_id,visa_type,origin_country,current_step_key,current_step_status,"
+        "extenuating_flags,updated_at,entering_year,graduation_year"
+    )
+    try:
+        students = (
+            client.table("students")
+            .select(_base_select + ",visa_expiration,passport_expiration")
+            .eq("college_id", college_id)
+            .execute()
+        ).data or []
+    except Exception as e:
+        if "visa_expiration" not in str(e) and "passport_expiration" not in str(e):
+            raise
+        logger.warning(
+            "students.visa_expiration/passport_expiration not found — "
+            "run migrations/010_visa_passport_expiration.sql. Falling back "
+            "without those columns for now."
         )
-        .eq("college_id", college_id)
-        .execute()
-    ).data or []
+        students = (
+            client.table("students")
+            .select(_base_select)
+            .eq("college_id", college_id)
+            .execute()
+        ).data or []
     by_id = {s["user_id"]: s for s in students}
     roster = []
     for u in users:
@@ -607,11 +626,26 @@ def create_custom_reminder(
     client = get_client()
     if client is None:
         return
-    client.table("custom_reminders").insert({
+    row = {
         "college_id": college_id, "author_id": author_id,
         "title": title, "detail": detail, "due_date": due_date,
         "target_visa_type": target_visa_type, "target_step_key": target_step_key,
-    }).execute()
+    }
+    try:
+        client.table("custom_reminders").insert(row).execute()
+    except Exception as e:
+        # target_visa_type/target_step_key (migrations/011) may not be applied
+        # yet — post the reminder untargeted (visible to everyone, the
+        # pre-migration behavior) rather than losing it outright.
+        if "target_visa_type" not in str(e) and "target_step_key" not in str(e):
+            raise
+        logger.warning(
+            "custom_reminders.target_visa_type/target_step_key not found — "
+            "run migrations/011_reminder_targeting.sql. Posting untargeted for now."
+        )
+        row.pop("target_visa_type", None)
+        row.pop("target_step_key", None)
+        client.table("custom_reminders").insert(row).execute()
 
 
 def list_custom_reminders(
@@ -625,15 +659,32 @@ def list_custom_reminders(
     client = get_client()
     if client is None:
         return []
-    res = (
-        client.table("custom_reminders")
-        .select("id,title,detail,due_date,created_at,target_visa_type,target_step_key")
-        .eq("college_id", college_id)
-        .order("due_date", desc=False)
-        .limit(limit)
-        .execute()
-    )
-    rows = res.data or []
+    try:
+        res = (
+            client.table("custom_reminders")
+            .select("id,title,detail,due_date,created_at,target_visa_type,target_step_key")
+            .eq("college_id", college_id)
+            .order("due_date", desc=False)
+            .limit(limit)
+            .execute()
+        )
+        rows = res.data or []
+    except Exception as e:
+        if "target_visa_type" not in str(e) and "target_step_key" not in str(e):
+            raise
+        logger.warning(
+            "custom_reminders.target_visa_type/target_step_key not found — "
+            "run migrations/011_reminder_targeting.sql. Treating all reminders as untargeted."
+        )
+        res = (
+            client.table("custom_reminders")
+            .select("id,title,detail,due_date,created_at")
+            .eq("college_id", college_id)
+            .order("due_date", desc=False)
+            .limit(limit)
+            .execute()
+        )
+        rows = res.data or []
     if visa_type is None and step_key is None:
         return rows
     return [
