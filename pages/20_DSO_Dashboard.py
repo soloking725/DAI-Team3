@@ -169,6 +169,10 @@ st.dataframe(
         }
         for r in filtered
     ],
+    # Without an explicit height, st.dataframe grows to fit every row, so a
+    # large roster pushes the rest of the page (step override, announcements)
+    # off screen. Cap it so it scrolls internally instead.
+    height=460,
     use_container_width=True,
     hide_index=True,
 )

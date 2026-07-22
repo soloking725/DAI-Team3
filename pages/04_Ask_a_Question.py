@@ -70,6 +70,23 @@ render_hamburger_menu(visa_type=visa_type)
 # hosted mode. No-op in local mode.
 user = auth.require_login("Sign in to see your timeline")
 
+# Backfill for accounts that onboarded before shared/db.py's update_user_name
+# existed: their name was only ever saved to the local profile blob, never to
+# users.name, so they never showed up with a name on the DSO roster. Guarded
+# to run once per browser session since it's checked on every load.
+if (
+    user and user.get("mode") == "hosted"
+    and not (user.get("name") or "").strip()
+    and state.get("profile", {}).get("name")
+    and not st.session_state.get("_synced_name_backfill")
+):
+    _profile_name = state["profile"]["name"].strip()
+    if _profile_name:
+        db.update_user_name(user["id"], _profile_name)
+        user["name"] = _profile_name
+        st.session_state["auth_user"] = user
+    st.session_state["_synced_name_backfill"] = True
+
 _trip_details = state.get("trip_details", {})
 if (
     user and user.get("mode") == "hosted"

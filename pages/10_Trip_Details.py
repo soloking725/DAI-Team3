@@ -10,7 +10,7 @@ from shared.branding import FAVICON
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
-from shared import auth
+from shared import auth, config, db
 from shared.vera_state import get_vera_state, set_trip_details, set_profile
 from shared.countries import ORIGIN_OPTIONS, DESTINATION_COUNTRIES
 from shared.schools import SCHOOL_OPTIONS, OTHER
@@ -181,6 +181,16 @@ with center:
         else:
             set_trip_details(origin, destination, school, entering_year, graduation_year)
             set_profile(name.strip(), visa_type)
+            # The signup flow itself never collects a name (email-OTP only),
+            # so users.name — what the DSO roster displays — starts blank for
+            # every real student. This is the one place a student types their
+            # name, so sync it into users.name here too.
+            if config.is_supabase_configured() and name.strip():
+                current_user = auth.get_current_user()
+                if current_user and current_user.get("id"):
+                    db.update_user_name(current_user["id"], name.strip())
+                    current_user["name"] = name.strip()
+                    st.session_state["auth_user"] = current_user
 
             is_supported = visa_type in STUDENT_VISA_TYPES and destination == "United States"
             if is_supported:

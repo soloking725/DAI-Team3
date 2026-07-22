@@ -154,6 +154,21 @@ def upsert_user(
     return get_user(user_id)
 
 
+def update_user_name(user_id: str, name: str) -> None:
+    """Sync a student's display name into the users table.
+
+    The real signup flow is email-OTP only (no name field), so users.name
+    starts out blank for every student and is only ever filled in here, once
+    they type their name on the trip-details onboarding step (see
+    pages/10_Trip_Details.py) — that's what the DSO roster's Name column
+    (list_students) reads from.
+    """
+    client = get_client()
+    if client is None:
+        return
+    client.table("users").update({"name": name}).eq("id", user_id).execute()
+
+
 def get_user(user_id: str) -> Optional[dict]:
     client = get_client()
     if client is None:

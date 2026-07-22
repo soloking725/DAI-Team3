@@ -258,11 +258,44 @@ def _finalize_login(session_user) -> dict | None:
     return user
 
 
+def _perform_send_code(email: str, client) -> None:
+    """The actual OTP send, run only after the button has already been
+    re-rendered as disabled (see _render_send_code_button) so a fast second
+    click can't slip in and trigger a duplicate email."""
+    try:
+        client.auth.sign_in_with_otp({"email": email})
+        st.session_state["_otp_email"] = email
+        st.session_state["_otp_attempts"] = 0
+        st.success("Code sent. Check your email.")
+        st.warning("Delivery can take 2-3 minutes — please wait before requesting a new code.")
+    except Exception as e:
+        # The optimistic cooldown started in _render_send_code_button was for
+        # a send that didn't actually happen — give the cooldown back so the
+        # user isn't stuck waiting 60s to retry a failed request.
+        st.session_state["_otp_sent_at"] = st.session_state.pop("_otp_prev_sent_at", 0.0)
+        st.error(f"Couldn't send a code: {e}")
+    finally:
+        st.session_state.pop("_otp_pending_send", None)
+        st.session_state.pop("_otp_prev_sent_at", None)
+
+
 @st.fragment(run_every="1s")
 def _render_send_code_button(email: str, client) -> None:
     """The 'Send code' / 'Resend in Xs' button, isolated in its own fragment
     so the cooldown countdown ticks down on its own every second instead of
-    only updating on the next full-page rerun."""
+    only updating on the next full-page rerun.
+
+    Clicking starts the 60s cooldown and disables the button *before* the OTP
+    request is made (via a fragment-scoped rerun), rather than after it
+    completes — otherwise a double-click (or the 1s auto-refresh) lands while
+    the request is still in flight and can fire a second, duplicate send.
+    """
+    pending_email = st.session_state.get("_otp_pending_send")
+    if pending_email:
+        st.button("Sending…", use_container_width=True, disabled=True)
+        _perform_send_code(pending_email, client)
+        return
+
     last_sent = st.session_state.get("_otp_sent_at", 0.0)
     cooldown_left = _OTP_SEND_COOLDOWN_SECONDS - (time.monotonic() - last_sent)
     if cooldown_left > 0:
@@ -274,16 +307,10 @@ def _render_send_code_button(email: str, client) -> None:
         elif config.ALLOWED_EMAIL_DOMAINS and domain not in config.ALLOWED_EMAIL_DOMAINS:
             st.error("Not authorized for this pilot. Use your school email.")
         else:
-            try:
-                client.auth.sign_in_with_otp({"email": email})
-                st.session_state["_otp_email"] = email
-                st.session_state["_otp_sent_at"] = time.monotonic()
-                st.session_state["_otp_attempts"] = 0
-                st.success("Code sent. Check your email.")
-                st.warning("Delivery can take 2-3 minutes — please wait before requesting a new code.")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Couldn't send a code: {e}")
+            st.session_state["_otp_prev_sent_at"] = last_sent
+            st.session_state["_otp_sent_at"] = time.monotonic()
+            st.session_state["_otp_pending_send"] = email
+            st.rerun(scope="fragment")
 
 
 def render_login(title: str = "Sign in to Vera") -> None:
