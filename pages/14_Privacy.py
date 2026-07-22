@@ -109,9 +109,10 @@ st.markdown(
                   padding:16px 18px;margin-top:12px">
         <p style="font-weight:500;margin:0 0 6px">Your school's visa guide PDF</p>
         <p style="font-size:13px;color:var(--text-secondary);margin:0">
-          When you upload a school guide PDF, its text is sent to Vera's language model provider to pull
-          out any required steps. The file itself is not saved to disk — only the extracted steps you
-          choose to add to your timeline are kept.
+          When you upload a school guide PDF, its text is sent to Qwen, the language model Vera uses —
+          run on Colby College's own HPC infrastructure, not a third-party API — to pull out any required
+          steps. The file itself is not saved to disk — only the extracted steps you choose to add to
+          your timeline are kept.
         </p>
       </div>
 
@@ -119,9 +120,9 @@ st.markdown(
                   padding:16px 18px;margin-top:12px">
         <p style="font-weight:500;margin:0 0 6px">Chat messages</p>
         <p style="font-size:13px;color:var(--text-secondary);margin:0">
-          Questions you ask Vera are sent to the same language model provider to generate an answer,
-          along with the relevant official government context. Chat history lives only in your current
-          browser session and isn't saved to disk.
+          Questions you ask Vera are sent to the same Qwen model, along with the relevant official
+          government context, to generate an answer. Chat history lives only in your current browser
+          session and isn't saved to disk.
         </p>
       </div>
 

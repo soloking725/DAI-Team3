@@ -25,12 +25,19 @@ def render_reminders_banner(reminders: list):
     cards = []
     for r in reminders:
         bg, border, text, icon = _REMINDER_STYLE.get(r["urgency"], _REMINDER_STYLE["notice"])
+        # Built-in reminders (shared/reminders.py's compute_reminders) are safe,
+        # system-generated text, but custom_reminders are free text a DSO typed in
+        # (pages/20_DSO_Dashboard.py) and rendered here for every student at the
+        # college — escape unconditionally rather than trusting the caller to only
+        # ever pass the built-in kind.
+        title = html.escape(str(r["title"]))
+        detail = html.escape(str(r["detail"]))
         cards.append(
             f'<div style="background:{bg};border:0.5px solid {border};border-left:3px solid {border};'
             f'border-radius:12px;padding:10px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start">'
             f'<i class="ti {icon}" style="font-size:16px;color:{text};margin-top:2px"></i>'
-            f'<div><p style="font-weight:500;font-size:13px;color:{text};margin:0 0 2px">{r["title"]}</p>'
-            f'<p style="font-size:12px;color:{text};margin:0">{r["detail"]}</p></div></div>'
+            f'<div><p style="font-weight:500;font-size:13px;color:{text};margin:0 0 2px">{title}</p>'
+            f'<p style="font-size:12px;color:{text};margin:0">{detail}</p></div></div>'
         )
     st.markdown(
         f'<div style="max-width:1200px;margin:0 auto 12px;padding:0 1rem">{"".join(cards)}</div>',

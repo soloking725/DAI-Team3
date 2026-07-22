@@ -21,9 +21,11 @@ stable function signatures.
    DSO-authored custom reminders),
    `migrations/006_chat_rate_limits.sql` (persisted per-user chat rate
    limiting), `migrations/007_web_sessions.sql` ("remember me" login
-   persistence across page reloads), and `migrations/008_school_years.sql`
-   (entering/graduation year, for graduating a whole cohort at once) — same
-   process, run once each.
+   persistence across page reloads), `migrations/008_school_years.sql`
+   (entering/graduation year, for graduating a whole cohort at once), and
+   `migrations/009_jwt_college_claim.sql` (makes the RLS policies below
+   actually enforceable — see the Row-Level Security note) — same process,
+   run once each.
 
 3. **Seed your colleges.** A user's email domain decides which college they join,
    so you can run more than one — e.g. a throwaway test college alongside the
@@ -64,11 +66,27 @@ stable function signatures.
 `001_init.sql` enables RLS with `college_id`-based policies as defense-in-depth.
 The app itself connects with the **service key** (which bypasses RLS) and
 enforces isolation with explicit `college_id` filters + role checks in
-`shared/auth.py`. The policies only take effect if you later expose the anon key
-to the browser or issue per-user JWTs — and they assume a `college_id` custom
-claim in the JWT, which requires a Supabase **auth hook** to populate. That hook
-is a post-MVP item; for the pilot, the app-level checks are the authoritative
-control.
+`shared/auth.py` — that remains the primary, authoritative control; RLS is a
+second, independent layer underneath it, not a replacement for it.
+
+That second layer only actually does anything once the JWTs issued at login
+carry a `college_id` claim, since that's what every policy above checks via
+`auth.jwt() ->> 'college_id'`. **This now requires one manual step no SQL file
+can do for you:**
+
+1. Run `migrations/009_jwt_college_claim.sql` (defines the claim-populating
+   function and grants Supabase's auth service permission to call it).
+2. In the Supabase dashboard: **Authentication → Hooks → Customize Access
+   Token (JWT) Claims hook** → enable it → select
+   `public.custom_access_token_hook`.
+3. Sign out and back in (existing sessions/cookies were issued before the
+   claim existed, so they won't have it until a fresh token is minted) and
+   confirm in a JWT decoder (e.g. jwt.io) that the token now has a
+   `college_id` claim matching the signed-in user's college.
+
+Until step 2 is done in the dashboard, the function sits there unused and the
+policies stay exactly as dormant as before — the SQL migration alone doesn't
+turn anything on.
 
 ## Smoke test after setup
 

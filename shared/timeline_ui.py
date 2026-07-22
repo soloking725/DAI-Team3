@@ -4,6 +4,8 @@ rotated stamp badge for completed steps, an accent outline on the
 current step, and grayed-out styling for upcoming ones.
 """
 
+import html
+
 import streamlit as st
 
 from shared.vera_state import mark_step_status
@@ -185,14 +187,20 @@ def render_timeline(steps: list, allow_complete: bool = True, visa_type: str = "
 
             # Built as one unbroken line: a blank, indented line here would be
             # parsed by CommonMark as an indented code block and escaped verbatim.
+            # title/detail are escaped because they aren't all developer-authored:
+            # school-guide steps are LLM-extracted from an uploaded PDF (shared/pdf_guide.py)
+            # and step details can be LLM-enriched (shared/timeline.py) — neither is
+            # trusted HTML, and in hosted mode a guide's steps are published to every
+            # student at the college, so unescaped injection here would be stored XSS
+            # across a whole tenant, not just the uploader's own session.
             row_html = (
                 f'<div class="vera-step-row">'
                 f'<div class="vera-step-dot-col">{line_html}'
                 f'<div class="{dot_class}"><i class="ti {icon}"></i></div></div>'
                 f'<div class="{card_class}"><div class="vera-step-title-row">'
-                f'<p class="vera-step-title">{step["title"]}</p>'
+                f'<p class="vera-step-title">{html.escape(step["title"])}</p>'
                 f'<span class="{badge_class}">{_STATUS_LABEL.get(display_status, display_status.title())}</span></div>'
-                f'<p class="vera-step-detail">{step["detail"]}</p></div></div>'
+                f'<p class="vera-step-detail">{html.escape(step["detail"])}</p></div></div>'
             )
             st.markdown(row_html, unsafe_allow_html=True)
 

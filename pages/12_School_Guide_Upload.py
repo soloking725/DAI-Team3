@@ -9,6 +9,8 @@ students aren't asked to duplicate work their school already did. It's still
 the only guide-upload path in local mode, where there's no college/DSO.
 Page: 12_School_Guide_Upload.py
 """
+import html
+
 import streamlit as st
 
 from shared.branding import FAVICON
@@ -116,7 +118,8 @@ with center:
                 help=f"{step['detail']}{page_note}",
             )
             st.markdown(
-                f"<p style='font-size:12px;color:var(--text-muted);margin:-8px 0 10px 28px'>{step['detail']}{page_note}</p>",
+                f"<p style='font-size:12px;color:var(--text-muted);margin:-8px 0 10px 28px'>"
+                f"{html.escape(step['detail'])}{html.escape(page_note)}</p>",
                 unsafe_allow_html=True,
             )
             if checked:
