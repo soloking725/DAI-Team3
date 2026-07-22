@@ -278,6 +278,13 @@ def render_hamburger_menu(visa_type: str = "f-1"):
                 )
                 st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
                 st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
+
+                from shared import auth, config
+                if config.is_supabase_configured() and auth.is_logged_in():
+                    st.divider()
+                    if st.button("Sign out", icon=":material/logout:", use_container_width=True):
+                        auth.logout()
+                        st.switch_page("app.py")
         with col2:
             logo = get_logo_data_uri()
             if logo:
