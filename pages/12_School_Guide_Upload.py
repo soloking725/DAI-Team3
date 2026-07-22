@@ -28,7 +28,7 @@ st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
 if config.is_supabase_configured():
-    user = auth.get_current_user()
+    user = auth.require_login("Sign in to add your school's visa guide")
     college = db.get_college(user["college_id"]) if user and user.get("college_id") else None
     if college and college.get("guide_steps"):
         st.markdown(
