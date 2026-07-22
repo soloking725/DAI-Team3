@@ -2,46 +2,38 @@
 Shared UI components used across multiple pages.
 """
 
+import html
+
 import streamlit as st
 
 
-def render_nav_bar(title="US Student Visa Information Resource", subtitle="Official government information on US student visa categories and processes"):
-    """Render the top navigation bar with working page links using Streamlit native navigation."""
-    st.markdown(
-        f"""
-    <div class="top-nav">
-        <div class="top-nav-inner">
-            <div class="top-nav-brand-col">
-                <p class="top-nav-brand">{title}</p>
-                <p class="top-nav-desc">{subtitle}</p>
-            </div>
-            <div class="top-nav-links">
-            """,
-        unsafe_allow_html=True,
-    )
+_REMINDER_STYLE = {
+    "urgent": ("#fff5f5", "#feb2b2", "#c53030", "ti-alert-triangle"),
+    "warning": ("#fffbeb", "#f6e05e", "#975a16", "ti-clock-exclamation"),
+    "notice": ("var(--surface-2)", "var(--border)", "var(--text-secondary)", "ti-bell"),
+}
 
-    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
-    with c1:
-        st.page_link("app.py", label="Home")
-    with c2:
-        st.page_link("pages/01_F-1_Student_Visa.py", label="F-1")
-    with c3:
-        st.page_link("pages/02_J-1_Exchange_Visitor.py", label="J-1")
-    with c4:
-        st.page_link("pages/03_M-1_Vocational_Visa.py", label="M-1")
-    with c5:
-        st.page_link("pages/04_Ask_a_Question.py", label="Ask a Question")
-    with c6:
-        st.page_link("pages/05_Post_Visa_Guide.py", label="Post-Arrival")
-    with c7:
-        st.page_link("pages/06_About.py", label="About")
 
+def render_reminders_banner(reminders: list):
+    """Render in-account expiration reminders (see shared/reminders.py).
+
+    Computed fresh from stored dates on every page load — nothing is
+    scheduled or emailed; there's no SMTP configured yet, so this is the
+    only place these surface."""
+    if not reminders:
+        return
+    cards = []
+    for r in reminders:
+        bg, border, text, icon = _REMINDER_STYLE.get(r["urgency"], _REMINDER_STYLE["notice"])
+        cards.append(
+            f'<div style="background:{bg};border:0.5px solid {border};border-left:3px solid {border};'
+            f'border-radius:12px;padding:10px 14px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start">'
+            f'<i class="ti {icon}" style="font-size:16px;color:{text};margin-top:2px"></i>'
+            f'<div><p style="font-weight:500;font-size:13px;color:{text};margin:0 0 2px">{r["title"]}</p>'
+            f'<p style="font-size:12px;color:{text};margin:0">{r["detail"]}</p></div></div>'
+        )
     st.markdown(
-        """
-            </div>
-        </div>
-    </div>
-    """,
+        f'<div style="max-width:1200px;margin:0 auto 12px;padding:0 1rem">{"".join(cards)}</div>',
         unsafe_allow_html=True,
     )
 
@@ -55,6 +47,52 @@ def render_disclaimer():
         situation, consult a licensed immigration attorney.
     </div>
     """
+
+
+_VISA_TYPE_NAMES = {
+    "f-1": "F-1", "h-1b": "H-1B", "other": "another visa type",
+}
+
+
+def render_profile_banner(page_visa_type: str = None):
+    """A small personalized greeting for the older static info pages.
+
+    Shows the user's name if Vera knows it, and — if the page's visa type
+    differs from the one the user told Vera they're pursuing — a soft note
+    pointing them to the right one, without hiding this page's content
+    (it's still a valid reference page for anyone reading it).
+    """
+    from shared.vera_state import get_vera_state
+
+    profile = get_vera_state().get("profile", {})
+    name = html.escape((profile.get("name") or "").strip())
+    visa_type = profile.get("visa_type") or ""
+
+    if not name and not visa_type:
+        return
+
+    greeting = f"Hi {name}, " if name else ""
+    note = ""
+    if page_visa_type and visa_type and visa_type != page_visa_type and visa_type in _VISA_TYPE_NAMES:
+        note = f"you told Vera you're pursuing an {_VISA_TYPE_NAMES[visa_type]} — this page covers {_VISA_TYPE_NAMES.get(page_visa_type, page_visa_type.upper())} instead, but the general process is similar."
+    elif greeting:
+        note = "here's what applies to you."
+
+    if not greeting and not note:
+        return
+
+    st.markdown(
+        f"""
+        <div style="max-width:1200px;margin:0 auto;padding:0 1rem">
+            <div style="background:var(--bg-accent);border:0.5px solid var(--border-accent);
+                        border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;
+                        font-size:13px;color:var(--text-accent)">
+                {greeting}{note}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_footer():
@@ -119,13 +157,46 @@ def render_source_citations(sources):
 
 _VISA_TYPE_PAGES = {
     "f-1": "pages/01_F-1_Student_Visa.py",
-    "j-1": "pages/02_J-1_Exchange_Visitor.py",
-    "m-1": "pages/03_M-1_Vocational_Visa.py",
+    "h-1b": "pages/16_Other_Visa_Coming_Soon.py",
+    "other": "pages/16_Other_Visa_Coming_Soon.py",
 }
 
 HAMBURGER_CSS = """
 <style>
-    div[data-testid="stPopover"] button {
+    /* The header is a real bar pinned to the top of the viewport, not a couple of
+       controls floating in the middle of the centered 1200px column. The ::before
+       pseudo-element paints a full-bleed background/border across the whole window
+       width while the controls themselves stay aligned with the page content. */
+    div.st-key-vera_header {
+        position: sticky;
+        top: 0;
+        z-index: 998;
+        padding: 10px 0 8px;
+        margin-bottom: 4px;
+    }
+    div.st-key-vera_header::before {
+        content: "";
+        position: absolute;
+        top: 0; bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100vw;
+        background: #ffffff;
+        border-bottom: 0.5px solid var(--border);
+        z-index: -1;
+    }
+    /* Nav bars shouldn't stack, unlike the main chat+timeline columns which
+       intentionally go vertical on phones — the hamburger icon and small
+       logo easily fit one row at any width, so force nowrap unconditionally
+       rather than only above the tablet breakpoint. */
+    div.st-key-vera_header div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+    }
+    div.st-key-vera_header div[data-testid="stColumn"] {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+    div.st-key-vera_header div[data-testid="stPopover"] button {
         width:32px !important; height:32px !important; padding:0 !important;
         border-radius:var(--radius) !important; border:0.5px solid var(--border) !important;
     }
@@ -133,6 +204,35 @@ HAMBURGER_CSS = """
         font-size: 22px !important;
         font-weight: 700 !important;
         color: var(--text-accent) !important;
+    }
+    /* Three-zone app-bar layout: hamburger | centered logo | matching empty
+       spacer. The spacer column mirrors the hamburger column's width so the
+       middle column's centered content lands on the true midpoint of the
+       bar, not just the midpoint of the leftover space — this holds at any
+       viewport width since Streamlit's columns are already percentage
+       based, no hardcoded pixel math needed. text-align (not flex
+       justify-content) does the centering: Streamlit's own wrapper divs
+       inside the column stretch to 100% width, so a flex justify-content
+       on the column has nothing narrower than itself to center — but the
+       logo is display:inline-block, so text-align on any block ancestor
+       still centers it correctly. */
+    div.st-key-vera_header [data-testid="stColumn"]:has(.vera-brand-logo),
+    div.st-key-vera_header [data-testid="stColumn"]:has(.st-key-vera_brand_link) {
+        text-align: center;
+    }
+    /* Streamlit wraps inline markdown content (our logo <a>) in a <p> that
+       carries its own text-align: left, which wins over the inherited
+       center above — override it explicitly. */
+    div.st-key-vera_header [data-testid="stColumn"]:has(.vera-brand-logo) p {
+        text-align: center;
+    }
+    .vera-brand-logo img {
+        height: 30px;
+        display: block;
+    }
+    .vera-brand-logo {
+        display: inline-block;
+        line-height: 0;
     }
 </style>
 """
@@ -144,30 +244,60 @@ def render_hamburger_menu(visa_type: str = "f-1"):
     "Vera" itself is a clickable brand link back to the timeline, so there's
     always a way back to the chat+timeline screen from anywhere on the site.
     """
+    from shared.branding import get_logo_data_uri
+
     st.markdown(HAMBURGER_CSS, unsafe_allow_html=True)
 
-    col1, col2 = st.columns([1, 11], vertical_alignment="center")
-    with col1:
-        with st.popover("☰"):
-            st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")
-            st.page_link("app.py", label="Home", icon=":material/home:")
-            st.divider()
-            st.page_link(
-                _VISA_TYPE_PAGES.get(visa_type, _VISA_TYPE_PAGES["f-1"]),
-                label="Forms",
-                icon=":material/description:",
-            )
-            st.page_link("pages/06_About.py", label="Info", icon=":material/info:")
-            st.page_link(
-                "pages/13_Help_Find_a_Lawyer.py",
-                label="Help (find a lawyer)",
-                icon=":material/balance:",
-            )
-            st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
-            st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
-    with col2:
-        with st.container(key="vera_brand_link"):
-            st.page_link("pages/04_Ask_a_Question.py", label="Vera")
+    with st.container(key="vera_header"):
+        col1, col2, col3 = st.columns([1, 10, 1], vertical_alignment="center")
+        with col1:
+            with st.popover("☰"):
+                st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")
+                st.page_link("app.py", label="Home", icon=":material/home:")
+                st.divider()
+                st.page_link(
+                    _VISA_TYPE_PAGES.get(visa_type, _VISA_TYPE_PAGES["f-1"]),
+                    label="Forms",
+                    icon=":material/description:",
+                )
+                st.page_link("pages/06_About.py", label="Info", icon=":material/info:")
+                st.page_link(
+                    "pages/17_Interview_Prep.py",
+                    label="Interview prep",
+                    icon=":material/record_voice_over:",
+                )
+                st.page_link(
+                    "pages/18_Document_Checklist.py",
+                    label="Document checklist",
+                    icon=":material/checklist:",
+                )
+                st.page_link(
+                    "pages/13_Help_Find_a_Lawyer.py",
+                    label="Help (find a lawyer)",
+                    icon=":material/balance:",
+                )
+                st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
+                st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
+
+                from shared import auth, config
+                if config.is_supabase_configured() and auth.is_logged_in():
+                    st.divider()
+                    if st.button("Sign out", icon=":material/logout:", use_container_width=True):
+                        auth.logout()
+                        st.switch_page("app.py")
+        with col2:
+            logo = get_logo_data_uri()
+            if logo:
+                # Plain <a> rather than st.page_link so the mark itself is the link;
+                # Streamlit's page_link only accepts a text label.
+                st.markdown(
+                    f'<a class="vera-brand-logo" href="/Ask_a_Question" target="_self">'
+                    f'<img src="{logo}" alt="VeraVisa"></a>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                with st.container(key="vera_brand_link"):
+                    st.page_link("pages/04_Ask_a_Question.py", label="Vera")
 
 
 FLOATING_CHAT_CSS = """
@@ -204,8 +334,21 @@ def render_floating_chat():
     """Render a real, usable Vera chat widget in a floating bottom-right popover,
     accessible from any page without navigating away. Requires shared/theme.py's
     get_vera_css() to already be loaded on the page (for icons + color tokens).
+
+    In hosted mode this is a no-op for anyone not logged in: several pages that
+    call this (01_F-1_Student_Visa.py, 05_Post_Visa_Guide.py, 06_About.py,
+    17_Interview_Prep.py, 18_Document_Checklist.py) don't gate on auth.require_login()
+    themselves, so without this check an anonymous visitor could reach any of
+    them directly by URL and get a live, LLM-backed chat with no account and no
+    session-spanning rate limit — unbounded anonymous access to a paid API.
+    Local mode has no accounts by design, so the widget still shows for everyone
+    there, matching original prototype behavior.
     """
+    from shared import auth, config
     from shared.chat_panel import render_chat_panel
+
+    if config.is_supabase_configured() and not auth.is_logged_in():
+        return
 
     st.markdown(FLOATING_CHAT_CSS, unsafe_allow_html=True)
     with st.popover("💬", key="vera_floating_chat"):

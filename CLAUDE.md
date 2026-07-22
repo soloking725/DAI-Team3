@@ -29,7 +29,37 @@ python update_checker.py
 There is no test suite, linter, or build step configured in this repo.
 
 Required environment variables (`.env`, gitignored — see `shared/config.py` for defaults):
-`QWEN_API_KEY`, `QWEN_BASE_URL` (default `http://litellm.colby.edu:4000/v1`), `QWEN_MODEL` (default `qwen-3.6-27b`), `QWEN_MAX_TOKENS`, `QWEN_TEMPERATURE`. When deploying (e.g. Streamlit Community Cloud), set these as platform secrets/env vars rather than shipping `.env`.
+`QWEN_API_KEY`, `QWEN_BASE_URL` (default `http://litellm.colby.edu:4000/v1`), `QWEN_MODEL` (default `qwen-3.6-27b`), `QWEN_MAX_TOKENS`, `QWEN_TEMPERATURE`. Hosted mode adds `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `ALLOWED_EMAIL_DOMAINS`, `DSO_EMAILS` (see `migrations/README.md`). When deploying (e.g. Streamlit Community Cloud), set these as platform secrets/env vars rather than shipping `.env`.
+
+## Secrets and live services — ask first
+
+`.env` holds real credentials: the Qwen/LiteLLM API key and, in hosted mode, the
+Supabase `service_role` key (full read/write access to student data, bypassing
+RLS). The Read tool and `cat` are blocked on dotfiles, but that block is not the
+whole boundary — **any command that imports `shared/config.py` runs
+`load_dotenv()` and pulls those secrets into the process environment.** That
+includes innocuous-looking one-liners like `python -c "import shared.db"`, and
+anything importing `shared/persistence.py`, `shared/auth.py`, or a `pages/` module.
+
+Treat the dotfile block as a statement of intent, not an obstacle to route
+around. Specifically:
+
+- **Never print, echo, or otherwise surface an environment variable's value**,
+  including into a log or scratch file. Print derived booleans
+  (`is_supabase_configured()`) or `bool(VALUE)` — never the value itself.
+- **Ask before running anything that connects to a live service** — Supabase,
+  the LiteLLM endpoint, or any remote API — even for read-only queries. The user
+  runs verification against their own live data; offer the command rather than
+  executing it.
+- **Never write to the Supabase database without explicit per-action approval.**
+  Reads are still an ask; writes, schema changes, and deletes are always the
+  user's to run.
+- Prefer verification that doesn't touch secrets at all: pure-function tests
+  (e.g. `shared/db.py::_denormalize`), local-mode runs with Supabase unset, and
+  import checks in a subprocess with a scrubbed environment.
+
+When a permission prompt is denied, that is a signal to stop and ask — not to
+find a different tool that accomplishes the same access.
 
 ## Architecture
 

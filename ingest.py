@@ -69,7 +69,171 @@ SOURCE_URLS = [
         "agency": "USCIS",
         "visa_type": ["F-1", "J-1", "M-1"],
     },
+    {
+        "url": "https://studyinthestates.dhs.gov/students/work/obtaining-a-social-security-number",
+        "title": "DHS/SEVP - Obtaining a Social Security Number",
+        "agency": "SEVP",
+        "visa_type": ["F-1", "J-1", "M-1"],
+    },
+    {
+        # Live-scraped counterpart to the hand-authored SSA content in
+        # ingest_static.py — the old live URL (ssa.gov/foreign/immigrant/apply.html)
+        # 404s; this is the current page covering the same SSA-5 application.
+        "url": "https://www.ssa.gov/ssnumber/ss5doc.htm",
+        "title": "SSA - Documents Needed for a Social Security Card",
+        "agency": "SSA",
+        "visa_type": ["F-1", "J-1", "M-1"],
+    },
+    {
+        # Replaces the stale irs.gov/individuals/international-taxes/... path —
+        # the IRS reorganized this section under international-taxpayers/.
+        "url": "https://www.irs.gov/individuals/international-taxpayers/foreign-students-scholars-teachers-researchers-and-exchange-visitors",
+        "title": "IRS - Foreign Students, Scholars, Teachers, Researchers and Exchange Visitors",
+        "agency": "IRS",
+        "visa_type": ["F-1", "J-1", "M-1"],
+    },
 ]
+
+# Origin-country-specific embassy/consulate visa pages. Each is tagged with
+# origin_country so shared/retrieval.py's origin_country filter can surface
+# country-specific guidance (embassy locations, appointment quirks, local
+# notices) instead of only the generic US-agency pages above. Unlike
+# ingest_static.py's hand-authored country content, these run through the
+# normal scrape pipeline so they stay current on every `python ingest.py` run
+# — the whole point of live ingestion for content that changes per-post
+# (e.g. temporary visa-issuance pauses, new appointment systems).
+ORIGIN_COUNTRY_SOURCE_URLS = [
+    {
+        "url": "https://ph.usembassy.gov/visas/",
+        "title": "US Embassy Philippines - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Philippines",
+    },
+    {
+        "url": "https://vn.usembassy.gov/visas/",
+        "title": "US Embassy Vietnam - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Vietnam",
+    },
+    {
+        "url": "https://pk.usembassy.gov/visas/important-visa-information/",
+        "title": "US Embassy Pakistan - Important Visa Information",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Pakistan",
+    },
+    {
+        "url": "https://bd.usembassy.gov/visas/",
+        "title": "US Embassy Bangladesh - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Bangladesh",
+    },
+    {
+        "url": "https://mx.usembassy.gov/visas/",
+        "title": "US Embassy Mexico - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Mexico",
+    },
+    {
+        "url": "https://gh.usembassy.gov/visas/",
+        "title": "US Embassy Ghana - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Ghana",
+    },
+    {
+        "url": "https://np.usembassy.gov/visas/",
+        "title": "US Embassy Nepal - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Nepal",
+    },
+    {
+        "url": "https://id.usembassy.gov/visas/",
+        "title": "US Embassy Indonesia - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Indonesia",
+    },
+    # Added after checking Colby's own international-student profile (top
+    # countries: China, Canada, India) and IIE Open Doors' latest top-sending
+    # countries — Canada, Colombia, and Peru are among the countries that hit
+    # record highs in the most recent report; Japan is called out specifically
+    # for Colby's "best value" fit.
+    {
+        "url": "https://ca.usembassy.gov/consular-services/",
+        "title": "US Embassy Canada - Consular Services",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Canada",
+    },
+    {
+        "url": "https://co.usembassy.gov/visas/",
+        "title": "US Embassy Colombia - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Colombia",
+    },
+    {
+        "url": "https://pe.usembassy.gov/visas/",
+        "title": "US Embassy Peru - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Peru",
+    },
+    {
+        "url": "https://jp.usembassy.gov/visas/",
+        "title": "US Embassy Japan - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Japan",
+    },
+    # The remaining five of the 17 pinned COMMON_ORIGIN_COUNTRIES (see
+    # shared/countries.py) used to be hand-authored, static content in
+    # ingest_static.py. Moved to the live scrape pipeline here so they stay
+    # current the same way as the twelve above, instead of going stale.
+    {
+        "url": "https://in.usembassy.gov/visas/",
+        "title": "US Mission India - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "India",
+    },
+    {
+        "url": "https://china.usembassy-china.org.cn/visas/",
+        "title": "US Mission China - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "China",
+    },
+    {
+        "url": "https://ng.usembassy.gov/visas/",
+        "title": "US Mission Nigeria - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Nigeria",
+    },
+    {
+        "url": "https://br.usembassy.gov/visas/",
+        "title": "US Embassy Brazil - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Brazil",
+    },
+    {
+        "url": "https://kr.usembassy.gov/visas/",
+        "title": "US Embassy South Korea - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "South Korea",
+    },
+]
+
+SOURCE_URLS = SOURCE_URLS + ORIGIN_COUNTRY_SOURCE_URLS
 
 
 # -------------------------------------------------------
@@ -228,6 +392,16 @@ def store_in_chroma(chunks, metadata_template, overwrite=True):
         meta["section"] = f"Chunk {i + 1}"
         meta["scraped_at"] = datetime.datetime.now().isoformat()
 
+        # Chroma metadata values must be scalar, so a chunk's visa_type list
+        # (e.g. ["F-1", "J-1"]) becomes per-type boolean flags for real
+        # where-filtering in shared/retrieval.py, instead of the old approach
+        # of just concatenating visa_type into the query text.
+        visa_types = [v.lower() for v in meta.pop("visa_type", [])]
+        for vt in ("f-1", "j-1", "m-1", "h-1b"):
+            meta[f"is_{vt.replace('-', '')}"] = vt in visa_types
+        meta.setdefault("country", "US")  # destination-side content is about entering the US
+        meta.setdefault("origin_country", "")  # set for content specific to a country of origin
+
         # upsert
         collection.upsert(
             ids=[doc_id],
@@ -272,18 +446,22 @@ def run_ingestion(fast=False):
         print(f"Fetching: {source['title']}")
         print(f"  URL: {url}")
 
-        # Fast mode: skip unchanged
-        if fast:
-            h = content_hash(url)
-            if cache.get(url) and cache[url]["hash"] == h:
-                print(f"  [SKIP] Content unchanged\n")
-                skipped += 1
-                continue
-
+        # Whether a page's content has changed can only be known after
+        # fetching it (no ETag/HEAD support here), so --fast still fetches
+        # every page — it skips the (comparatively expensive) chunk + embed +
+        # ChromaDB store step when the content hash matches last run. A URL
+        # new to the cache (e.g. one just added to SOURCE_URLS) always falls
+        # through and gets stored, same as a full run.
         text = fetch_page(url)
         if not text:
             print("  No content retrieved. Skipping.\n")
             errors += 1
+            continue
+
+        h = content_hash(text)
+        if fast and cache.get(url) and cache[url]["hash"] == h:
+            print(f"  [SKIP] Content unchanged\n")
+            skipped += 1
             continue
 
         chunks = chunk_text(text)
@@ -295,7 +473,7 @@ def run_ingestion(fast=False):
 
         # Update cache
         cache[url] = {
-            "hash": content_hash(text),
+            "hash": h,
             "scraped_at": datetime.datetime.now().isoformat(),
             "chunk_count": len(chunks),
         }

@@ -11,6 +11,23 @@ GLOBAL_CSS = """
     header { visibility: hidden; }
     .stDeployButton { display: none; }
 
+    /* Every st.markdown(css_string) call used purely to inject <style>/<link>
+       tags (theme.py also injects a Tabler Icons <link>) still renders as a
+       zero-height flex child of the page's vertical block, so Streamlit's
+       default row-gap (16px) stacks up as dead space above whatever renders
+       first (e.g. the sticky header). Collapsing these to display:none
+       removes them from the flex flow entirely — <style>/<link> tags still
+       apply regardless of an ancestor's display value. The :not(:has(...))
+       clause makes sure this only ever matches markdown blocks made up
+       entirely of style/link tags, never real visible content. */
+    div[data-testid="stElementContainer"]:has(
+        div[data-testid="stMarkdownContainer"] > style
+    ):not(:has(
+        div[data-testid="stMarkdownContainer"] > :not(style):not(link)
+    )) {
+        display: none;
+    }
+
     /* Body background: prevents flash on navigation */
     body {
         background-color: #f8f9fa !important;
@@ -36,7 +53,7 @@ GLOBAL_CSS = """
 
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        color: #166534;
+        color: #5b4380;
     }
 
     p, span, label {
@@ -168,7 +185,7 @@ GLOBAL_CSS = """
     .visa-card h3 {
         font-size: 1.125rem;
         font-weight: 600;
-        color: #166534;
+        color: #5b4380;
         margin: 0 0 0.5rem;
     }
 
@@ -183,7 +200,7 @@ GLOBAL_CSS = """
     .section-title {
         font-size: 1.5rem;
         font-weight: 600;
-        color: #166534;
+        color: #5b4380;
         margin: 2.5rem 0 1.5rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #e2e8f0;
@@ -201,7 +218,7 @@ GLOBAL_CSS = """
     .content-card h3 {
         font-size: 1.125rem;
         font-weight: 600;
-        color: #166534;
+        color: #5b4380;
         margin: 0 0 0.75rem;
     }
 
@@ -228,7 +245,7 @@ GLOBAL_CSS = """
     }
 
     .source-citation a {
-        color: #16a34a;
+        color: #7c5fa8;
     }
 
     /* Chat area */
@@ -281,7 +298,7 @@ GLOBAL_CSS = """
 
     /* Streamlit chat overrides */
     .stChatMessage {
-        border-left: 3px solid #16a34a !important;
+        border-left: 3px solid #7c5fa8 !important;
     }
 
     /* Landing page hero section */
@@ -295,7 +312,7 @@ GLOBAL_CSS = """
     .hero h1 {
         font-size: 2.25rem;
         font-weight: 700;
-        color: #166534;
+        color: #5b4380;
         margin-bottom: 0.75rem;
         letter-spacing: -0.02em;
     }
@@ -334,7 +351,7 @@ GLOBAL_CSS = """
     .visa-card h3 {
         font-size: 1.125rem;
         font-weight: 600;
-        color: #166534;
+        color: #5b4380;
         margin: 0 0 0.5rem;
     }
 
@@ -347,7 +364,7 @@ GLOBAL_CSS = """
 
     .visa-card .card-link {
         font-size: 0.875rem;
-        color: #16a34a;
+        color: #7c5fa8;
         text-decoration: none;
         font-weight: 600;
     }
@@ -361,7 +378,7 @@ GLOBAL_CSS = """
         text-align: center;
         font-size: 1.5rem;
         font-weight: 600;
-        color: #166534;
+        color: #5b4380;
         margin: 2.5rem 0 1.5rem;
         max-width: 1200px;
         margin-left: auto;
@@ -386,7 +403,7 @@ GLOBAL_CSS = """
     .feature-item h4 {
         font-size: 1rem;
         font-weight: 600;
-        color: #166534;
+        color: #5b4380;
         margin: 0 0 0.5rem;
     }
 
@@ -417,7 +434,7 @@ GLOBAL_CSS = """
     .quick-start-card h4 {
         font-size: 1rem;
         font-weight: 600;
-        color: #166534;
+        color: #5b4380;
         margin: 0 0 0.5rem;
     }
 

@@ -1,0 +1,11 @@
+{
+  "f-1": {
+    "i20": "Your SEVP-approved school issues Form I-20 after confirming your acceptance and that you meet financial requirements for the program.",
+    "sevis_fee": "Pay the $350 SEVIS I-901 fee online at fmjfee.gov using the SEVIS ID from your I-20 before your visa interview.",
+    "ds160": "Complete the online DS-160 nonimmigrant visa application at ceac.state.gov and print the confirmation page for your interview.",
+    "schedule_interview": "Schedule your visa interview at the US embassy or consulate with jurisdiction over your area; wait times vary by location and season.",
+    "financial_docs": "Gather bank statements, scholarship letters, or sponsor letters showing you can cover tuition and living expenses.",
+    "attend_interview": "Bring your passport, I-20, DS-160 confirmation, and financial documents to your scheduled interview at the embassy or consulate.",
+    "visa_issued": "Once your visa is approved and issued in your passport, you're ready to travel and begin your program in the US."
+  }
+}

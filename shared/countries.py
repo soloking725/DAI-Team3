@@ -1,0 +1,72 @@
+"""
+Country lists for the trip-details intake form.
+
+COMMON_ORIGIN_COUNTRIES are pinned at the top of the origin dropdown because
+Vera has real embassy/consulate guidance for them — five hand-authored (see
+ingest_static.py) and twelve more live-scraped from each country's US embassy
+site (see ingest.py's ORIGIN_COUNTRY_SOURCE_URLS, refreshed on every
+`python ingest.py` run); everyone else still gets a full, real country list
+instead of the previous 5-country placeholder.
+
+The twelve live-scraped countries were chosen from Colby College's own
+international-student profile (top countries: China, Canada, India) plus IIE
+Open Doors' latest top-sending-country data (Bangladesh, Ghana, Nepal,
+Pakistan, Vietnam, Colombia, and Peru all hit record highs in the most recent
+report), plus Japan (called out for Colby's "best value" fit).
+"""
+
+COMMON_ORIGIN_COUNTRIES = [
+    "India", "China", "Nigeria", "Brazil", "South Korea",
+    "Philippines", "Vietnam", "Pakistan", "Bangladesh", "Mexico",
+    "Ghana", "Nepal", "Indonesia", "Canada", "Colombia", "Peru", "Japan",
+]
+
+_ALL_COUNTRIES_ALPHA = [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda",
+    "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain",
+    "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan",
+    "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria",
+    "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada",
+    "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros",
+    "Congo (Republic of the)", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czechia",
+    "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica",
+    "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea",
+    "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France",
+    "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada",
+    "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras",
+    "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland",
+    "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan",
+    "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia",
+    "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania",
+    "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta",
+    "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia",
+    "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique",
+    "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand",
+    "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway",
+    "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea",
+    "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania",
+    "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia",
+    "Saint Vincent and the Grenadines", "Samoa", "San Marino",
+    "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles",
+    "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands",
+    "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka",
+    "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan",
+    "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago",
+    "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine",
+    "United Arab Emirates", "United Kingdom", "United States", "Uruguay",
+    "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen",
+    "Zambia", "Zimbabwe",
+]
+
+# Common origin countries pinned first, then everyone else alphabetically,
+# with no duplicates.
+ORIGIN_COUNTRIES = COMMON_ORIGIN_COUNTRIES + [
+    c for c in _ALL_COUNTRIES_ALPHA if c not in COMMON_ORIGIN_COUNTRIES
+]
+
+# Vera only supports the United States as a destination for now — the
+# Trip Details form locks the destination field to this single value (see
+# pages/10_Trip_Details.py) rather than offering a full country list.
+DESTINATION_COUNTRIES = ["United States"]
+
+ORIGIN_OPTIONS = [""] + ORIGIN_COUNTRIES

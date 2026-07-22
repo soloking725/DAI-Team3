@@ -1,6 +1,7 @@
 """About page with disclaimer, sources, and limitations."""
 
 import streamlit as st
+from shared.branding import FAVICON
 
 from shared.components import (
     render_card,
@@ -8,22 +9,25 @@ from shared.components import (
     render_floating_chat,
     render_footer,
     render_hamburger_menu,
+    render_profile_banner,
     render_section,
     render_source_citations,
 )
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
+from shared.vera_state import get_vera_state
 
-st.set_page_config(page_title="About", page_icon=":book:", layout="wide")
+st.set_page_config(page_title="About", page_icon=FAVICON, layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
-render_hamburger_menu()
+render_hamburger_menu(visa_type=get_vera_state().get("profile", {}).get("visa_type") or "f-1")
 st.markdown(render_disclaimer(), unsafe_allow_html=True)
+render_profile_banner()
 
 st.markdown("""
 <div style="max-width:1200px; margin:0 auto; padding:2rem 1rem 0;">
-    <h1 style="font-size:1.75rem; font-weight:700; color:#166534; margin:0 0 0.5rem;">
+    <h1 style="font-size:1.75rem; font-weight:700; color:#5b4380; margin:0 0 0.5rem;">
         About This Tool
     </h1>
     <p style="color:#4a5568; font-size:1rem; margin:0 0 2rem;">
@@ -40,7 +44,7 @@ st.markdown(render_section("Purpose"), unsafe_allow_html=True)
 st.markdown(render_card(
     title="What This Tool Does",
     content_html="""
-    <p>This tool provides factual, sourced information about US student visa categories (F-1, J-1, M-1) and post-arrival requirements. It is designed to help international students understand the visa application process, required documents, fees, and procedures based on official US government sources.</p>
+    <p>This tool provides factual, sourced information about the US F-1 student visa category and post-arrival requirements. It is designed to help international students understand the visa application process, required documents, fees, and procedures based on official US government sources.</p>
     <p>The tool uses Retrieval-Augmented Generation (RAG) to answer questions by retrieving relevant information from a database of official government content. Every answer includes clickable source links to the original government pages.</p>
     """,
 ), unsafe_allow_html=True)

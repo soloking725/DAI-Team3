@@ -5,6 +5,8 @@ chat experience. Reuses the same RAG + safeguard pipeline as the original
 Ask a Question page.
 """
 
+import html
+import logging
 import time
 
 import streamlit as st
@@ -20,7 +22,49 @@ from shared.safeguards import (
     extract_visa_type,
 )
 from shared.chatbot import call_qwen_api
-from shared.config import MAX_INPUT_LENGTH, RATE_LIMIT_SECONDS, RATE_LIMIT_MAX_REQUESTS
+from shared.config import (
+    MAX_INPUT_LENGTH,
+    MIN_SECONDS_BETWEEN_QUERIES,
+    RATE_LIMIT_SECONDS,
+    RATE_LIMIT_MAX_REQUESTS,
+)
+
+SIGN_IN_REQUIRED_MESSAGE = "Please sign in to chat with Vera."
+
+
+def _llm_requires_login() -> bool:
+    """True when this is a hosted deployment and nobody is signed in.
+
+    Local mode has no accounts at all (get_current_user() always returns a
+    synthetic user), so this is only ever True in hosted mode for an
+    anonymous visitor. Checked both where the panel renders its input and
+    again at the actual call_qwen_api() site in _process_pending_question,
+    so the LLM can't fire without a signed-in user even if some future
+    caller renders this panel without going through render_floating_chat()'s
+    own gate.
+    """
+    from shared import auth, config
+
+    return config.is_supabase_configured() and not auth.is_logged_in()
+
+logger = logging.getLogger(__name__)
+
+# A bare "please continue" isn't a new factual question — it's asking the
+# model to keep going on an answer already given (and already confidence-
+# gated) earlier in conversation_history. Running it through retrieval as if
+# it were a fresh query always fails (there's nothing to embed-match against
+# "please continue" itself) and used to fall straight into the canned refusal
+# even though a real answer was already in progress.
+_CONTINUATION_PHRASES = {
+    "continue", "please continue", "continue please", "keep going",
+    "go on", "go on please", "and then", "what else", "more", "more please",
+    "tell me more", "keep on", "next",
+}
+
+
+def _is_continuation_request(question: str) -> bool:
+    normalized = question.strip().lower().rstrip(".!?")
+    return normalized in _CONTINUATION_PHRASES
 
 PANEL_CSS = """
 <style>
@@ -64,45 +108,77 @@ def _process_pending_question():
         return
 
     question = st.session_state.pop("pending_question")
-    with st.spinner("Searching official sources..."):
-        visa_type = extract_visa_type(question)
-        retrieval = retrieve_context(query=question, top_k=5, visa_type=visa_type, distance_threshold=1.2)
-        context = retrieval.get("context", "")
-        sources = retrieval.get("sources", [])
-        distances = retrieval.get("distances", [])
-        is_confident = check_confidence(distances)
 
-        if not is_confident and has_visa_keyword(question):
-            broader = retrieve_context(query=question, top_k=8, visa_type=None, distance_threshold=1.3)
-            if check_confidence(broader.get("distances", [])):
-                is_confident = True
-                context = broader.get("context", "")
-                sources = broader.get("sources", [])
-
+    if _llm_requires_login():
         st.session_state.chat_history.append({"role": "user", "content": question})
+        st.session_state.chat_history.append({
+            "role": "assistant", "content": SIGN_IN_REQUIRED_MESSAGE, "warnings": [],
+        })
+        st.session_state.is_processing = False
+        st.rerun(scope="fragment")
 
-        if is_confident:
-            api_result = call_qwen_api(
-                user_message=question,
-                context=context,
-                history=st.session_state.conversation_history[-10:],
+    try:
+        with st.spinner("Searching official sources..."):
+            is_continuation = (
+                _is_continuation_request(question)
+                and bool(st.session_state.conversation_history)
             )
-            cleaned = strip_thinking(api_result["response"])
-            filtered_text, warnings = filter_output(cleaned)
-            st.session_state.chat_history.append({
-                "role": "assistant", "content": filtered_text, "warnings": warnings, "sources": sources,
-            })
-            st.session_state.conversation_history.append({"role": "user", "content": question})
-            st.session_state.conversation_history.append({"role": "assistant", "content": filtered_text})
-        else:
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": "I do not have information about this from official government sources. Try rephrasing, or consult a licensed immigration attorney for your specific situation.",
-                "warnings": ["Low confidence: no relevant official sources found."],
-                "sources": [],
-            })
 
-    st.session_state.is_processing = False
+            if is_continuation:
+                # Nothing new to fact-check — the prior answer already went
+                # through retrieval + confidence gating; just let the model
+                # keep going on it using the existing history.
+                context, sources, is_confident = "", [], True
+            else:
+                visa_type = extract_visa_type(question)
+                retrieval = retrieve_context(query=question, top_k=5, visa_type=visa_type, distance_threshold=1.2)
+                context = retrieval.get("context", "")
+                sources = retrieval.get("sources", [])
+                distances = retrieval.get("distances", [])
+                is_confident = check_confidence(distances)
+
+                if not is_confident and has_visa_keyword(question):
+                    broader = retrieve_context(query=question, top_k=8, visa_type=None, distance_threshold=1.3)
+                    if check_confidence(broader.get("distances", [])):
+                        is_confident = True
+                        context = broader.get("context", "")
+                        sources = broader.get("sources", [])
+
+            st.session_state.chat_history.append({"role": "user", "content": question})
+
+            if is_confident:
+                api_result = call_qwen_api(
+                    user_message=question,
+                    context=context,
+                    history=st.session_state.conversation_history[-10:],
+                )
+                cleaned = strip_thinking(api_result["response"])
+                filtered_text, warnings = filter_output(cleaned)
+                st.session_state.chat_history.append({
+                    "role": "assistant", "content": filtered_text, "warnings": warnings, "sources": sources,
+                })
+                st.session_state.conversation_history.append({"role": "user", "content": question})
+                st.session_state.conversation_history.append({"role": "assistant", "content": filtered_text})
+            else:
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "content": "I do not have information about this from official government sources. Try rephrasing, or consult a licensed immigration attorney for your specific situation.",
+                    "warnings": ["Low confidence: no relevant official sources found."],
+                    "sources": [],
+                })
+    except Exception:
+        logger.exception("Chat pipeline failed while answering a question")
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": "Something went wrong while looking that up. Please try asking again.",
+            "warnings": [],
+            "sources": [],
+        })
+    finally:
+        # Always clear the processing flag, even on error, so the UI never
+        # gets stuck showing "Thinking…" forever.
+        st.session_state.is_processing = False
+
     st.rerun(scope="fragment")
 
 
@@ -145,11 +221,18 @@ def render_chat_panel():
 
         for msg in st.session_state.chat_history:
             css_class = "vera-chat-msg-user" if msg["role"] == "user" else "vera-chat-msg-assistant"
-            warning_html = "".join(f'<div class="vera-chat-warning">{w}</div>' for w in msg.get("warnings", []))
+            # msg["content"] is either raw user input or LLM output — neither is
+            # trusted HTML, so escape before interpolating into unsafe_allow_html.
+            content = html.escape(msg["content"])
+            warning_html = "".join(f'<div class="vera-chat-warning">{html.escape(w)}</div>' for w in msg.get("warnings", []))
             st.markdown(
-                f'<div class="vera-chat-msg {css_class}">{msg["content"]}{warning_html}</div>',
+                f'<div class="vera-chat-msg {css_class}">{content}{warning_html}</div>',
                 unsafe_allow_html=True,
             )
+
+    if _llm_requires_login():
+        st.info(SIGN_IN_REQUIRED_MESSAGE)
+        return
 
     with st.form("vera_chat_form", clear_on_submit=True):
         user_input = st.text_input(
@@ -165,6 +248,18 @@ def render_chat_panel():
         question = user_input.strip()
 
         now = time.time()
+        if (
+            st.session_state.request_timestamps
+            and now - st.session_state.request_timestamps[-1] < MIN_SECONDS_BETWEEN_QUERIES
+        ):
+            st.session_state.chat_history.append({"role": "user", "content": question})
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": "Please wait a couple seconds before sending another question.",
+                "warnings": [f"Minimum {MIN_SECONDS_BETWEEN_QUERIES:.0f}s between questions."],
+            })
+            st.rerun(scope="fragment")
+
         st.session_state.request_timestamps = [
             ts for ts in st.session_state.request_timestamps if now - ts < RATE_LIMIT_SECONDS
         ]
@@ -179,6 +274,28 @@ def render_chat_panel():
             st.rerun(scope="fragment")
 
         st.session_state.request_timestamps.append(now)
+
+        # Persisted, cross-session check for hosted mode — the two checks
+        # above only guard against abuse within *this* session; a logged-in
+        # student opening a new tab gets a fresh, empty session_state for
+        # free. This is keyed by the durable user_id instead, so it survives
+        # that (see migrations/006_chat_rate_limits.sql). No-op in local mode.
+        from shared import auth, config, db
+
+        if config.is_supabase_configured():
+            user = auth.get_current_user()
+            if user and user.get("id"):
+                allowed, wait_time = db.check_and_increment_chat_rate_limit(
+                    user["id"], RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_SECONDS
+                )
+                if not allowed:
+                    st.session_state.chat_history.append({"role": "user", "content": question})
+                    st.session_state.chat_history.append({
+                        "role": "assistant",
+                        "content": "You've reached the rate limit. Please wait before asking another question.",
+                        "warnings": [f"Rate limit: max {RATE_LIMIT_MAX_REQUESTS} requests per {RATE_LIMIT_SECONDS:.0f}s. Wait {wait_time}s."],
+                    })
+                    st.rerun(scope="fragment")
 
         is_legal, flagged = classify_input(question)
         if is_legal:
