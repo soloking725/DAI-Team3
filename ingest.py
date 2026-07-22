@@ -231,6 +231,13 @@ ORIGIN_COUNTRY_SOURCE_URLS = [
         "visa_type": ["F-1", "J-1", "M-1"],
         "origin_country": "South Korea",
     },
+    {
+        "url": "https://tr.usembassy.gov/visas/",
+        "title": "US Embassy Turkey - Visas",
+        "agency": "US Embassy",
+        "visa_type": ["F-1", "J-1", "M-1"],
+        "origin_country": "Turkey",
+    },
 ]
 
 SOURCE_URLS = SOURCE_URLS + ORIGIN_COUNTRY_SOURCE_URLS

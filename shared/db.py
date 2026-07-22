@@ -132,20 +132,20 @@ def upsert_user(
 ) -> dict:
     """Insert or update the app-level user record for an authenticated identity.
 
-    `role` only takes effect the first time this user logs in (bootstrapping
-    from the DSO_EMAILS allow-list). On every later login the existing DB row
-    is authoritative, so a role change only needs a DB update, not an env-var
-    edit plus redeploy.
+    `role` is re-derived from the DSO_EMAILS allow-list on every login (see
+    shared/auth.py's _resolve_role) and written here each time, so granting or
+    revoking DSO access is a secrets-only change — no DB update needed, and no
+    stale role lingering from before an email was added to/removed from the
+    allow-list.
     """
     client = get_client()
     if client is None:
         raise RuntimeError("upsert_user called in local mode")
-    existing = get_user(user_id)
     row = {
         "id": user_id,
         "email": email.lower(),
         "college_id": college_id,
-        "role": existing["role"] if existing else role,
+        "role": role,
     }
     if name:
         row["name"] = name

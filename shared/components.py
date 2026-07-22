@@ -100,10 +100,14 @@ def render_footer():
     return """
     <div class="site-footer">
         <p><strong>US Student Visa Information Resource</strong></p>
+        <p style="font-size:1.05rem;font-weight:600;color:#fff5f5;background:rgba(197,48,48,0.25);
+                  border:1px solid rgba(254,178,178,0.5);border-radius:8px;padding:0.75rem 1rem;
+                  max-width:640px;margin:0.75rem auto">
+            This tool does not provide legal advice. For legal advice about your specific situation,
+            consult a licensed immigration attorney.
+        </p>
         <p>
             This tool provides factual information from official US government sources.
-            It does not provide legal advice. For legal advice about your specific situation,
-            consult a licensed immigration attorney.
         </p>
         <p>
             Sources: <a href="https://www.uscis.gov" target="_blank">uscis.gov</a> |

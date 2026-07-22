@@ -2,23 +2,22 @@
 Country lists for the trip-details intake form.
 
 COMMON_ORIGIN_COUNTRIES are pinned at the top of the origin dropdown because
-Vera has real embassy/consulate guidance for them — five hand-authored (see
-ingest_static.py) and twelve more live-scraped from each country's US embassy
-site (see ingest.py's ORIGIN_COUNTRY_SOURCE_URLS, refreshed on every
-`python ingest.py` run); everyone else still gets a full, real country list
-instead of the previous 5-country placeholder.
+Vera has real embassy/consulate guidance for them, all live-scraped from each
+country's US embassy site (see ingest.py's ORIGIN_COUNTRY_SOURCE_URLS,
+refreshed on every `python ingest.py` run); everyone else still gets a full,
+real country list instead of the previous 5-country placeholder.
 
-The twelve live-scraped countries were chosen from Colby College's own
-international-student profile (top countries: China, Canada, India) plus IIE
-Open Doors' latest top-sending-country data (Bangladesh, Ghana, Nepal,
-Pakistan, Vietnam, Colombia, and Peru all hit record highs in the most recent
-report), plus Japan (called out for Colby's "best value" fit).
+Most of these were chosen from Colby College's own international-student
+profile (top countries: China, Canada, India) plus IIE Open Doors' latest
+top-sending-country data (Bangladesh, Ghana, Nepal, Pakistan, Vietnam,
+Colombia, and Peru all hit record highs in the most recent report), plus
+Japan (called out for Colby's "best value" fit) and Turkey.
 """
 
 COMMON_ORIGIN_COUNTRIES = [
     "India", "China", "Nigeria", "Brazil", "South Korea",
     "Philippines", "Vietnam", "Pakistan", "Bangladesh", "Mexico",
-    "Ghana", "Nepal", "Indonesia", "Canada", "Colombia", "Peru", "Japan",
+    "Ghana", "Nepal", "Indonesia", "Canada", "Colombia", "Peru", "Japan", "Turkey",
 ]
 
 _ALL_COUNTRIES_ALPHA = [

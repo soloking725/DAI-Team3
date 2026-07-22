@@ -214,3 +214,7 @@ def render_timeline(steps: list, allow_complete: bool = True, visa_type: str = "
                 if st.button("Mark complete", key=f"complete_{step['id']}"):
                     mark_step_status(step["id"], "complete")
                     st.rerun(scope="fragment")
+            elif allow_complete and status == "complete":
+                if st.button("Undo", key=f"undo_{step['id']}"):
+                    mark_step_status(step["id"], "upcoming")
+                    st.rerun(scope="fragment")

@@ -269,11 +269,11 @@ GLOBAL_CSS = """
     /* Footer */
     .site-footer {
         background-color: #1a365d;
-        color: #a0aec0;
+        color: #e2e8f0;
         text-align: center;
         padding: 2rem 1rem;
         margin-top: 3rem;
-        font-size: 0.85rem;
+        font-size: 1rem;
         line-height: 1.6;
     }
 

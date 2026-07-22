@@ -134,6 +134,34 @@ def _finalize_login(session_user) -> dict | None:
     return user
 
 
+@st.fragment(run_every="1s")
+def _render_send_code_button(email: str, client) -> None:
+    """The 'Send code' / 'Resend in Xs' button, isolated in its own fragment
+    so the cooldown countdown ticks down on its own every second instead of
+    only updating on the next full-page rerun."""
+    last_sent = st.session_state.get("_otp_sent_at", 0.0)
+    cooldown_left = _OTP_SEND_COOLDOWN_SECONDS - (time.monotonic() - last_sent)
+    if cooldown_left > 0:
+        st.button(f"Resend in {int(cooldown_left) + 1}s", use_container_width=True, disabled=True)
+    elif st.button("Send code", use_container_width=True):
+        domain = email.split("@")[-1] if "@" in email else ""
+        if "@" not in email:
+            st.error("Enter a valid email address.")
+        elif config.ALLOWED_EMAIL_DOMAINS and domain not in config.ALLOWED_EMAIL_DOMAINS:
+            st.error("Not authorized for this pilot. Use your school email.")
+        else:
+            try:
+                client.auth.sign_in_with_otp({"email": email})
+                st.session_state["_otp_email"] = email
+                st.session_state["_otp_sent_at"] = time.monotonic()
+                st.session_state["_otp_attempts"] = 0
+                st.success("Code sent. Check your email.")
+                st.warning("Delivery can take 2-3 minutes — please wait before requesting a new code.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Couldn't send a code: {e}")
+
+
 def render_login(title: str = "Sign in to Vera") -> None:
     """Render the email-OTP login form. No-op in local mode."""
     if not config.is_supabase_configured():
@@ -146,29 +174,9 @@ def render_login(title: str = "Sign in to Vera") -> None:
 
     email = st.text_input("School email", key="_otp_email_input").strip().lower()
 
-    col1, col2 = st.columns(2)
+    col1, _ = st.columns(2)
     with col1:
-        last_sent = st.session_state.get("_otp_sent_at", 0.0)
-        cooldown_left = _OTP_SEND_COOLDOWN_SECONDS - (time.monotonic() - last_sent)
-        if cooldown_left > 0:
-            st.button(f"Resend in {int(cooldown_left) + 1}s", use_container_width=True, disabled=True)
-        elif st.button("Send code", use_container_width=True):
-            domain = email.split("@")[-1] if "@" in email else ""
-            if "@" not in email:
-                st.error("Enter a valid email address.")
-            elif config.ALLOWED_EMAIL_DOMAINS and domain not in config.ALLOWED_EMAIL_DOMAINS:
-                st.error("Not authorized for this pilot. Use your school email.")
-            else:
-                try:
-                    client.auth.sign_in_with_otp({"email": email})
-                    st.session_state["_otp_email"] = email
-                    st.session_state["_otp_sent_at"] = time.monotonic()
-                    st.session_state["_otp_attempts"] = 0
-                    st.success("Code sent. Check your email.")
-                    st.warning("Delivery can take 2-3 minutes — please wait before requesting a new code.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Couldn't send a code: {e}")
+        _render_send_code_button(email, client)
 
     sent_to = st.session_state.get("_otp_email")
     if sent_to:
@@ -176,24 +184,27 @@ def render_login(title: str = "Sign in to Vera") -> None:
         if attempts >= _OTP_MAX_VERIFY_ATTEMPTS:
             st.error("Too many incorrect attempts. Request a new code to try again.")
             return
-        code = st.text_input(f"Code sent to {sent_to}", key="_otp_code").strip()
-        with col2:
-            if st.button("Verify", use_container_width=True):
-                try:
-                    res = client.auth.verify_otp(
-                        {"email": sent_to, "token": code, "type": "email"}
-                    )
-                    if res.user is None:
-                        st.session_state["_otp_attempts"] = attempts + 1
-                        st.error("Invalid or expired code.")
-                        return
-                    user = _finalize_login(res.user)
-                    if user is None:
-                        st.error("Not authorized for this pilot.")
-                        return
-                    st.session_state.pop("_otp_attempts", None)
-                    st.session_state.pop("_otp_sent_at", None)
-                    st.rerun()
-                except Exception as e:
+        # A plain st.button next to a text_input doesn't respond to Enter — only
+        # a real st.form's submit button does, so wrap code entry + verify here.
+        with st.form("_otp_verify_form"):
+            code = st.text_input(f"Code sent to {sent_to}", key="_otp_code").strip()
+            verify_clicked = st.form_submit_button("Verify", use_container_width=True)
+        if verify_clicked:
+            try:
+                res = client.auth.verify_otp(
+                    {"email": sent_to, "token": code, "type": "email"}
+                )
+                if res.user is None:
                     st.session_state["_otp_attempts"] = attempts + 1
-                    st.error(f"Verification failed: {e}")
+                    st.error("Invalid or expired code.")
+                    return
+                user = _finalize_login(res.user)
+                if user is None:
+                    st.error("Not authorized for this pilot.")
+                    return
+                st.session_state.pop("_otp_attempts", None)
+                st.session_state.pop("_otp_sent_at", None)
+                st.rerun()
+            except Exception as e:
+                st.session_state["_otp_attempts"] = attempts + 1
+                st.error(f"Verification failed: {e}")

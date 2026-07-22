@@ -125,7 +125,7 @@ with center:
     with st.container(key="bubble_row"):
         col_student, col_staff = st.columns(2)
         with col_student:
-            if st.button("Get started →", use_container_width=False, key="get_started"):
+            if st.button("Student", use_container_width=False, key="get_started"):
                 # Returning students who already onboarded shouldn't be walked back
                 # through Trip Details — their profile/timeline is already persisted
                 # (per-account in hosted mode, per ?vid= session locally).
