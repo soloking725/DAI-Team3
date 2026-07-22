@@ -31,6 +31,7 @@ DEFAULT_VERA_STATE = {
         "visa_expiration": "",      # ISO date string "YYYY-MM-DD", student-entered
         "passport_expiration": "",  # ISO date string "YYYY-MM-DD", student-entered
     },
+    "document_checklist": {},  # item id -> bool, see pages/18_Document_Checklist.py
 }
 
 
@@ -54,6 +55,7 @@ def init_vera_state():
     state.setdefault("extenuating_circumstances", dict(DEFAULT_VERA_STATE["extenuating_circumstances"]))
     state.setdefault("post_visa", dict(DEFAULT_VERA_STATE["post_visa"]))
     state.setdefault("trip_details", dict(DEFAULT_VERA_STATE["trip_details"]))
+    state.setdefault("document_checklist", dict(DEFAULT_VERA_STATE["document_checklist"]))
     # trip_details itself predates entering_year/graduation_year, so an
     # already-persisted dict has the key but not these two sub-fields —
     # top-level setdefault above only helps when the whole key is missing.
@@ -117,6 +119,12 @@ def set_post_visa_dates(visa_expiration: str, passport_expiration: str):
         "visa_expiration": visa_expiration or "",
         "passport_expiration": passport_expiration or "",
     }
+    persist_vera_state()
+
+
+def set_checklist_item(item_id: str, checked: bool):
+    state = get_vera_state()
+    state["document_checklist"][item_id] = checked
     persist_vera_state()
 
 

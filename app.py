@@ -136,5 +136,43 @@ with center:
         with col_staff:
             # Staff entry point — the only way into the DSO dashboard, which
             # isn't in the hamburger menu (students should never see those links).
-            if st.button("I'm school staff", key="staff_btn"):
+            if st.button("To Staff →", key="staff_btn"):
                 st.switch_page("pages/20_DSO_Dashboard.py")
+
+# What Vera does for each side, split down the middle — visible on scroll below
+# the two entry-point bubbles above, so a first-time visitor who scrolls past
+# the buttons still learns what they're choosing between.
+st.markdown(
+    """
+    <div style="max-width:1000px;margin:14vh auto 4rem;padding:0 1rem;
+                display:grid;grid-template-columns:1fr 1fr;gap:0;
+                border-top:0.5px solid var(--border)">
+      <div style="padding:2rem 2rem 2rem 0;border-right:0.5px solid var(--border)">
+        <i class="ti ti-user" style="font-size:22px;color:var(--text-accent)"></i>
+        <h3 style="margin:0.75rem 0 0.5rem;font-size:1.1rem">For students</h3>
+        <p style="margin:0;font-size:14px;color:var(--text-secondary);line-height:1.6">
+          Vera builds a personal visa timeline from your program details, answers questions
+          grounded in official USCIS, State Department, SEVP, SSA, and IRS guidance, and
+          reminds you before your passport or visa expires — all in one place.
+        </p>
+      </div>
+      <div style="padding:2rem 0 2rem 2rem">
+        <i class="ti ti-building" style="font-size:22px;color:var(--text-accent)"></i>
+        <h3 style="margin:0.75rem 0 0.5rem;font-size:1.1rem">For school staff</h3>
+        <p style="margin:0;font-size:14px;color:var(--text-secondary);line-height:1.6">
+          DSOs get a roster of every student's progress, can flag who's falling behind,
+          post announcements and deadlines, message students directly, and publish
+          school-specific steps from your own visa guide to everyone at once.
+        </p>
+      </div>
+    </div>
+    <style>
+      @media (max-width: 640px) {
+        div[style*="grid-template-columns:1fr 1fr"] {
+          grid-template-columns: 1fr !important;
+        }
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)

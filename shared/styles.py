@@ -167,16 +167,37 @@ GLOBAL_CSS = """
         background-color: rgba(255, 255, 255, 0.15) !important;
     }
 
-    /* Disclaimer banner */
+    /* Disclaimer banner — a real full-bleed strip flush against whatever's
+       above it (the sticky header), not an inset card with margin on all
+       sides. The old margin:1.5rem auto + max-width:1200px made it look like
+       a floating box dropped somewhere in the middle of the page instead of
+       a banner attached to the top; the ::before pseudo-element paints the
+       background/border edge-to-edge across the full window width while the
+       readable text stays constrained to the page's normal content width —
+       same full-bleed technique shared/components.py's HAMBURGER_CSS uses
+       for the header bar itself. */
     .disclaimer-banner {
+        position: relative;
         background-color: #fffbeb;
-        border: 1px solid #f6e05e;
         border-left: 4px solid #d69e2e;
         padding: 0.875rem 1.25rem;
-        margin: 1.5rem auto;
-        max-width: 1200px;
+        margin: 0 0 1.5rem;
         font-size: 0.875rem;
         color: #744210;
+        z-index: 1;
+    }
+
+    .disclaimer-banner::before {
+        content: "";
+        position: absolute;
+        top: 0; bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100vw;
+        background-color: #fffbeb;
+        border-top: 1px solid #f6e05e;
+        border-bottom: 1px solid #f6e05e;
+        z-index: -1;
     }
 
     .disclaimer-banner strong {

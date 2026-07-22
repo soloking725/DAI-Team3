@@ -108,7 +108,14 @@ college = None
 custom_reminders = []
 if user and user.get("mode") == "hosted" and user.get("college_id"):
     college = db.get_college(user["college_id"])
-    custom_reminders = db.list_custom_reminders(user["college_id"])
+    _current_step_key = next(
+        (s.get("id") for s in state["timeline"] if s.get("status") != "complete"), None
+    )
+    custom_reminders = db.list_custom_reminders(
+        user["college_id"],
+        visa_type=state.get("profile", {}).get("visa_type") or None,
+        step_key=_current_step_key,
+    )
     if college and college.get("guide_pdf_url"):
         st.markdown(
             f"📄 [{college.get('name') or 'Your school'}'s visa guide]({college['guide_pdf_url']})"
@@ -182,7 +189,7 @@ with st.container(key="vera_main_row"):
 if user and user.get("mode") == "hosted" and user.get("college_id"):
     dsos = db.get_dso_users(user["college_id"])
     if dsos:
-        st.markdown("### Messages from your DSO")
+        st.markdown("### Message DSO")
         st.caption(
             "For logistics support, not legal advice — for legal questions, "
             "consult a licensed immigration attorney."

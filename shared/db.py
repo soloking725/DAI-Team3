@@ -247,6 +247,7 @@ def _denormalize(blob: dict) -> dict:
     """Pull the DSO-dashboard-relevant columns out of a vera-state blob."""
     profile = blob.get("profile", {}) or {}
     trip = blob.get("trip_details", {}) or {}
+    post_visa = blob.get("post_visa", {}) or {}
     timeline = blob.get("timeline", []) or []
     # "current step" = first step not yet complete, matching the timeline UI.
     current = next((s for s in timeline if s.get("status") != "complete"), None) or {}
@@ -260,6 +261,8 @@ def _denormalize(blob: dict) -> dict:
         "current_step_key": current.get("id"),
         "current_step_status": current.get("status"),
         "extenuating_flags": blob.get("extenuating_circumstances", {}) or {},
+        "visa_expiration": post_visa.get("visa_expiration") or None,
+        "passport_expiration": post_visa.get("passport_expiration") or None,
         "full_state": blob,
     }
 
@@ -430,7 +433,8 @@ def list_students(college_id: str) -> list[dict]:
         client.table("students")
         .select(
             "user_id,visa_type,origin_country,current_step_key,current_step_status,"
-            "extenuating_flags,updated_at,entering_year,graduation_year"
+            "extenuating_flags,updated_at,entering_year,graduation_year,"
+            "visa_expiration,passport_expiration"
         )
         .eq("college_id", college_id)
         .execute()
@@ -453,6 +457,8 @@ def list_students(college_id: str) -> list[dict]:
                 "updated_at": s.get("updated_at") or "",
                 "entering_year": s.get("entering_year"),
                 "graduation_year": s.get("graduation_year"),
+                "visa_expiration": s.get("visa_expiration") or "",
+                "passport_expiration": s.get("passport_expiration") or "",
             }
         )
     return roster
@@ -588,30 +594,53 @@ def list_upcoming_events(college_id: str, limit: int = 10) -> list[dict]:
 # unemployment-limit tracking, program-extension deadlines, etc). Still
 # in-account only — no email/SMS transport exists in this app yet.
 # ---------------------------------------------------------------------------
-def create_custom_reminder(college_id: str, author_id: str, title: str, detail: str, due_date: str) -> None:
-    """due_date is an ISO date string ("YYYY-MM-DD")."""
+def create_custom_reminder(
+    college_id: str, author_id: str, title: str, detail: str, due_date: str,
+    target_visa_type: Optional[str] = None, target_step_key: Optional[str] = None,
+) -> None:
+    """due_date is an ISO date string ("YYYY-MM-DD").
+
+    target_visa_type/target_step_key are None for "everyone at the college"
+    (the original, only behavior) — set either to narrow who sees it, e.g. a
+    reminder that only makes sense for students still on a specific step.
+    """
     client = get_client()
     if client is None:
         return
     client.table("custom_reminders").insert({
         "college_id": college_id, "author_id": author_id,
         "title": title, "detail": detail, "due_date": due_date,
+        "target_visa_type": target_visa_type, "target_step_key": target_step_key,
     }).execute()
 
 
-def list_custom_reminders(college_id: str, limit: int = 50) -> list[dict]:
+def list_custom_reminders(
+    college_id: str, limit: int = 50,
+    visa_type: Optional[str] = None, step_key: Optional[str] = None,
+) -> list[dict]:
+    """All reminders for a college when visa_type/step_key are omitted (the DSO
+    authoring/management view). Pass a student's own visa_type/step_key to get
+    only the reminders that apply to them (a reminder with a null target column
+    applies to everyone; a non-null target must match)."""
     client = get_client()
     if client is None:
         return []
     res = (
         client.table("custom_reminders")
-        .select("id,title,detail,due_date,created_at")
+        .select("id,title,detail,due_date,created_at,target_visa_type,target_step_key")
         .eq("college_id", college_id)
         .order("due_date", desc=False)
         .limit(limit)
         .execute()
     )
-    return res.data or []
+    rows = res.data or []
+    if visa_type is None and step_key is None:
+        return rows
+    return [
+        r for r in rows
+        if (not r.get("target_visa_type") or r["target_visa_type"] == visa_type)
+        and (not r.get("target_step_key") or r["target_step_key"] == step_key)
+    ]
 
 
 def delete_custom_reminder(reminder_id: str, college_id: str) -> None:

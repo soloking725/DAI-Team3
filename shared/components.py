@@ -46,12 +46,19 @@ def render_reminders_banner(reminders: list):
 
 
 def render_disclaimer():
-    """Render the persistent disclaimer banner."""
+    """Render the persistent disclaimer banner.
+
+    Lists every agency Vera's retrieval index actually pulls from (see
+    ingest.py's SOURCE_URLS) — this used to say "USCIS, State Department, SSA"
+    only, silently leaving out SEVP, IRS, and embassy-sourced content even
+    though answers can cite any of them.
+    """
     return """
     <div class="disclaimer-banner">
         <strong>Disclaimer:</strong> This tool provides factual information from official US government sources
-        (USCIS, State Department, SSA). It does not provide legal advice. For legal advice about your specific
-        situation, consult a licensed immigration attorney.
+        (USCIS, the State Department, SEVP/Study in the States, the SSA, the IRS, and US embassy/consulate
+        websites). It does not provide legal advice. For legal advice about your specific situation, consult a
+        licensed immigration attorney.
     </div>
     """
 
@@ -238,7 +245,7 @@ HAMBURGER_CSS = """
         text-align: center;
     }
     .vera-brand-logo img {
-        height: 30px;
+        height: 42px;
         display: block;
     }
     .vera-brand-logo {
