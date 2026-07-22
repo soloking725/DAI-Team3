@@ -274,17 +274,31 @@ def _perform_send_code(email: str, client) -> None:
         client.auth.sign_in_with_otp({"email": email})
         st.session_state["_otp_email"] = email
         st.session_state["_otp_attempts"] = 0
-        st.success("Code sent. Check your email.")
-        st.warning("Delivery can take 2-3 minutes — please wait before requesting a new code.")
+        st.session_state["_otp_flash"] = (
+            "success",
+            "Code sent. Check your email — delivery can take 2-3 minutes.",
+        )
     except Exception as e:
         # The optimistic cooldown started in _render_send_code_button was for
         # a send that didn't actually happen — give the cooldown back so the
         # user isn't stuck waiting 60s to retry a failed request.
         st.session_state["_otp_sent_at"] = st.session_state.pop("_otp_prev_sent_at", 0.0)
-        st.error(f"Couldn't send a code: {e}")
+        st.session_state["_otp_flash"] = ("error", f"Couldn't send a code: {e}")
     finally:
         st.session_state.pop("_otp_pending_send", None)
         st.session_state.pop("_otp_prev_sent_at", None)
+
+    # This function runs inside _render_send_code_button's @st.fragment, so a
+    # fragment-scoped rerun (or none at all) only ever redraws the button —
+    # render_login()'s outer body, which decides whether to show the
+    # code-entry form based on st.session_state["_otp_email"], never gets a
+    # chance to re-run. That's why the code box wouldn't appear after
+    # sending: session_state was updated correctly, but nothing outside this
+    # fragment ever re-executed to notice. An unscoped st.rerun() forces the
+    # whole page to re-run so the form actually shows up; the message is
+    # stashed above (not shown directly) since a rerun immediately after
+    # would make an inline st.success/st.error flash invisible.
+    st.rerun()
 
 
 @st.fragment(run_every="1s")
@@ -336,6 +350,11 @@ def render_login(title: str = "Sign in to Vera") -> None:
     col1, _ = st.columns(2)
     with col1:
         _render_send_code_button(email, client)
+
+    _flash = st.session_state.pop("_otp_flash", None)
+    if _flash:
+        _kind, _message = _flash
+        getattr(st, _kind)(_message)
 
     sent_to = st.session_state.get("_otp_email")
     if sent_to:
