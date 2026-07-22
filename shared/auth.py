@@ -43,6 +43,12 @@ _OTP_MAX_VERIFY_ATTEMPTS = 5
 _SESSION_COOKIE_NAME = "session_token"
 _SESSION_TTL_DAYS = 7
 
+# How many extra reruns we'll force waiting for the cookie component to
+# report ready() before giving up on this browser session. One is usually
+# enough, but a slow network/extension can need a couple more — see
+# _restore_session_from_cookie().
+_COOKIE_READY_MAX_RERUNS = 3
+
 _LOCAL_USER = {
     "id": "local",
     "email": "",
@@ -65,32 +71,39 @@ def _cookie_manager():
     return CookieManager(prefix="vera_")
 
 
-def _restore_session_from_cookie() -> dict | None:
+def _restore_session_from_cookie() -> tuple[dict | None, bool]:
     """Look up the persisted-login cookie (if any) and restore auth_user from it.
 
-    The cookie component needs one browser round-trip before it's ready to
+    Returns (user_or_None, definitive). `definitive` is False when the cookie
+    component still hasn't finished its browser round-trip — the caller must
+    not cache that as "no session" or a slow-loading component would lock the
+    user out of cookie restore for the rest of the browser session.
+
+    The cookie component needs a browser round-trip before it's ready to
     read — on the very first render of a brand-new browser session, ready()
-    is False. Rather than give up (which would mean cookie-based login never
-    works on a fresh visit), we force exactly one extra rerun to give it that
-    round-trip, then commit to whatever the result is.
+    is False. We force a few extra reruns (bounded by
+    _COOKIE_READY_MAX_RERUNS) to give it that round-trip; only once we've
+    either gotten a real answer or exhausted the retries do we commit to a
+    result.
     """
     cookies = _cookie_manager()
     if not cookies.ready():
-        if not st.session_state.get("_cookie_wait_rerun"):
-            st.session_state["_cookie_wait_rerun"] = True
+        retries = st.session_state.get("_cookie_wait_reruns", 0)
+        if retries < _COOKIE_READY_MAX_RERUNS:
+            st.session_state["_cookie_wait_reruns"] = retries + 1
             st.rerun()
-        return None
+        return None, False
 
     token = cookies.get(_SESSION_COOKIE_NAME)
     if not token:
-        return None
+        return None, True
 
     user_id = db.resolve_web_session(token)
     if not user_id:
-        return None
+        return None, True
     user_row = db.get_user(user_id)
     if not user_row:
-        return None
+        return None, True
     college = db.get_college(user_row["college_id"]) if user_row.get("college_id") else None
     return {
         "id": user_row["id"],
@@ -100,7 +113,7 @@ def _restore_session_from_cookie() -> dict | None:
         "college_id": user_row.get("college_id"),
         "college_name": (college or {}).get("name", ""),
         "mode": "hosted",
-    }
+    }, True
 
 
 def get_current_user() -> dict | None:
@@ -111,9 +124,10 @@ def get_current_user() -> dict | None:
 
     In hosted mode, a plain page reload used to sign a student out instantly:
     st.session_state lives on the WebSocket connection, and a reload opens a
-    new one. This now falls back to the "remember me" cookie exactly once per
-    browser session (guarded by _cookie_restore_done) before giving up and
-    asking for a fresh login.
+    new one. This falls back to the "remember me" cookie, retrying across a
+    few reruns (guarded by _cookie_restore_done, which is only set once the
+    cookie component has actually reported ready) before giving up and asking
+    for a fresh login.
     """
     if not config.is_supabase_configured():
         return dict(_LOCAL_USER)
@@ -124,8 +138,9 @@ def get_current_user() -> dict | None:
     if st.session_state.get("_cookie_restore_done"):
         return None
 
-    user = _restore_session_from_cookie()
-    st.session_state["_cookie_restore_done"] = True
+    user, definitive = _restore_session_from_cookie()
+    if definitive:
+        st.session_state["_cookie_restore_done"] = True
     if user is not None:
         st.session_state["auth_user"] = user
     return user
@@ -238,6 +253,7 @@ def _finalize_login(session_user) -> dict | None:
                 cookies.save()
     except Exception as e:
         logger.warning("Failed to set session cookie after login: %s", e)
+        st.toast("Couldn't save your login for next time — you may need to sign in again after refreshing.", icon="⚠️")
 
     return user
 
