@@ -14,8 +14,12 @@ venv/
 .env.local
 .env.*.local
 
-# ChromaDB
-chroma_db/
+# ChromaDB is intentionally committed (see chroma_db/) so the Streamlit Cloud
+# deploy boots with real embeddings instead of an empty index — Streamlit
+# Community Cloud has no persistent filesystem, so nothing generated only at
+# runtime survives a redeploy. Re-run `python ingest.py` and commit the result
+# whenever source content changes. (.DS_Store inside it is still ignored by
+# the blanket .DS_Store rule below.)
 
 # Vera local session/upload storage
 local/
