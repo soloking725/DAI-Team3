@@ -12,6 +12,7 @@ from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
 from shared.vera_state import get_vera_state, set_extenuating_circumstances
 from shared.circumstances import CIRCUMSTANCE_CATEGORIES
+from shared import auth
 
 st.set_page_config(page_icon=FAVICON, page_title="Anything else Vera should know? - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
@@ -19,6 +20,10 @@ st.markdown(get_vera_css(), unsafe_allow_html=True)
 
 state = get_vera_state()
 render_hamburger_menu(visa_type=state.get("profile", {}).get("visa_type") or "f-1")
+
+# Sits between Trip Details and the timeline in the onboarding flow — both of
+# which require login — so this one should too (previously didn't, an oversight).
+auth.require_login("Sign in to continue")
 
 st.markdown(
     """

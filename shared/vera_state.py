@@ -15,6 +15,8 @@ DEFAULT_VERA_STATE = {
         "origin": "",
         "destination": "",
         "school": "",
+        "entering_year": "",     # e.g. 2024 — int when set, "" when unknown
+        "graduation_year": "",   # e.g. 2028 — lets a DSO graduate a whole cohort at once
     },
     "profile": {
         "name": "",
@@ -51,6 +53,12 @@ def init_vera_state():
     state.setdefault("profile", dict(DEFAULT_VERA_STATE["profile"]))
     state.setdefault("extenuating_circumstances", dict(DEFAULT_VERA_STATE["extenuating_circumstances"]))
     state.setdefault("post_visa", dict(DEFAULT_VERA_STATE["post_visa"]))
+    state.setdefault("trip_details", dict(DEFAULT_VERA_STATE["trip_details"]))
+    # trip_details itself predates entering_year/graduation_year, so an
+    # already-persisted dict has the key but not these two sub-fields —
+    # top-level setdefault above only helps when the whole key is missing.
+    state["trip_details"].setdefault("entering_year", "")
+    state["trip_details"].setdefault("graduation_year", "")
     st.session_state.vera = state
     st.session_state["_vera_loaded_key"] = key
 
@@ -67,9 +75,25 @@ def persist_vera_state():
     save_session(vid, st.session_state.vera)
 
 
-def set_trip_details(origin: str, destination: str, school: str):
+def set_trip_details(
+    origin: str, destination: str, school: str,
+    entering_year: str = "", graduation_year: str = "",
+):
     state = get_vera_state()
-    state["trip_details"] = {"origin": origin, "destination": destination, "school": school}
+    state["trip_details"] = {
+        "origin": origin, "destination": destination, "school": school,
+        "entering_year": entering_year, "graduation_year": graduation_year,
+    }
+    persist_vera_state()
+
+
+def set_school_years(entering_year: str, graduation_year: str):
+    """Set just entering/graduation year without touching the rest of
+    trip_details — used by the "one more thing" backfill prompt for accounts
+    that onboarded before these fields existed (see pages/04_Ask_a_Question.py)."""
+    state = get_vera_state()
+    state["trip_details"]["entering_year"] = entering_year
+    state["trip_details"]["graduation_year"] = graduation_year
     persist_vera_state()
 
 

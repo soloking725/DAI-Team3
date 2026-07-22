@@ -16,9 +16,14 @@ stable function signatures.
    `migrations/002_messages.sql` (DSO <-> student direct messaging),
    `migrations/003_college_guide_steps.sql` (admin-uploaded school guide steps),
    `migrations/004_graduation_aggregates.sql` (anonymized cohort stats
-   recorded when a DSO marks a student graduated), and
+   recorded when a DSO marks a student graduated),
    `migrations/005_reminders_and_events.sql` (event-tagged announcements plus
-   DSO-authored custom reminders) — same process, run once each.
+   DSO-authored custom reminders),
+   `migrations/006_chat_rate_limits.sql` (persisted per-user chat rate
+   limiting), `migrations/007_web_sessions.sql` ("remember me" login
+   persistence across page reloads), and `migrations/008_school_years.sql`
+   (entering/graduation year, for graduating a whole cohort at once) — same
+   process, run once each.
 
 3. **Seed your colleges.** A user's email domain decides which college they join,
    so you can run more than one — e.g. a throwaway test college alongside the

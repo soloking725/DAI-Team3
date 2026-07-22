@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import secrets
 from typing import Any, Optional
 
 import streamlit as st
@@ -162,6 +163,69 @@ def get_user(user_id: str) -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Web sessions ("remember me") — a browser-cookie-held opaque token mapped to
+# a user_id here, so a full page reload can restore login without a fresh OTP
+# round-trip. The cookie never carries the raw Supabase JWT, only this random
+# token, so a leaked cookie can be revoked by deleting/expiring its row here
+# without touching the underlying Supabase Auth session.
+# ---------------------------------------------------------------------------
+def create_web_session(user_id: str, ttl_days: int) -> str:
+    """Create a new persisted login token for user_id, valid for ttl_days."""
+    client = get_client()
+    if client is None:
+        return ""
+    token = secrets.token_urlsafe(32)
+    expires_at = (
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=ttl_days)
+    ).isoformat()
+    client.table("web_sessions").insert(
+        {"token": token, "user_id": user_id, "expires_at": expires_at}
+    ).execute()
+    return token
+
+
+def resolve_web_session(token: str) -> Optional[str]:
+    """Return the user_id a still-valid session token belongs to, or None.
+
+    Opportunistically deletes the row if it's expired, instead of waiting on
+    a scheduled cleanup job — the same way a lazily-expired cache entry works.
+    """
+    client = get_client()
+    if client is None or not token:
+        return None
+    res = (
+        client.table("web_sessions")
+        .select("user_id,expires_at")
+        .eq("token", token)
+        .limit(1)
+        .execute()
+    )
+    if not res.data:
+        return None
+    row = res.data[0]
+    expires_at = datetime.datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+    if datetime.datetime.now(datetime.timezone.utc) >= expires_at:
+        client.table("web_sessions").delete().eq("token", token).execute()
+        return None
+    return row["user_id"]
+
+
+def delete_web_sessions_for_user(user_id: str) -> None:
+    """Revoke every persisted login session for a user (sign-out).
+
+    Deletes by user_id rather than the one token the current browser holds,
+    so signing out on one device also revokes any other still-valid "remember
+    me" cookie for that account (e.g. a second tab or a since-stolen cookie) —
+    the actual security boundary is this server-side row, not whether the
+    browser also managed to clear its own cookie.
+    """
+    client = get_client()
+    if client is None:
+        return
+    client.table("web_sessions").delete().eq("user_id", user_id).execute()
+
+
+# ---------------------------------------------------------------------------
 # Student state  (the app's vera-state blob <-> normalized students row)
 # ---------------------------------------------------------------------------
 def _denormalize(blob: dict) -> dict:
@@ -176,6 +240,8 @@ def _denormalize(blob: dict) -> dict:
         "origin_country": trip.get("origin") or None,
         "destination": trip.get("destination") or None,
         "school": trip.get("school") or None,
+        "entering_year": trip.get("entering_year") or None,
+        "graduation_year": trip.get("graduation_year") or None,
         "current_step_key": current.get("id"),
         "current_step_status": current.get("status"),
         "extenuating_flags": blob.get("extenuating_circumstances", {}) or {},
@@ -246,7 +312,9 @@ def delete_state(user_id: str) -> None:
 
 def delete_student_account(user_id: str, college_id: str) -> bool:
     """Permanently remove a student's account and every row referencing them
-    (messages, audit log entries, the students row, the users row itself).
+    (messages, audit log entries, the students row, the users row itself),
+    plus their underlying Supabase Auth identity — a full right-to-erasure,
+    not just the app-level profile.
 
     Always available on request — self-service from Settings, or as part of
     graduate_and_anonymize() below — regardless of whether the student's
@@ -274,6 +342,10 @@ def delete_student_account(user_id: str, college_id: str) -> bool:
     client.table("audit_logs").delete().eq("actor_id", user_id).execute()
     client.table("students").delete().eq("user_id", user_id).execute()
     client.table("users").delete().eq("id", user_id).execute()
+    try:
+        client.auth.admin.delete_user(user_id)
+    except Exception as e:  # app-level data is already gone; don't undo that over this
+        logger.warning("Failed to delete Supabase Auth identity for %s: %s", user_id, e)
     return True
 
 
@@ -341,7 +413,10 @@ def list_students(college_id: str) -> list[dict]:
     ).data or []
     students = (
         client.table("students")
-        .select("user_id,visa_type,origin_country,current_step_key,current_step_status,extenuating_flags,updated_at")
+        .select(
+            "user_id,visa_type,origin_country,current_step_key,current_step_status,"
+            "extenuating_flags,updated_at,entering_year,graduation_year"
+        )
         .eq("college_id", college_id)
         .execute()
     ).data or []
@@ -361,9 +436,38 @@ def list_students(college_id: str) -> list[dict]:
                 "current_step_status": s.get("current_step_status") or "",
                 "flagged": bool(flags.get("categories")),
                 "updated_at": s.get("updated_at") or "",
+                "entering_year": s.get("entering_year"),
+                "graduation_year": s.get("graduation_year"),
             }
         )
     return roster
+
+
+def bulk_graduate_by_year(college_id: str, graduation_year: int) -> int:
+    """Graduate every student in college_id whose graduation_year matches,
+    recording each one's anonymized aggregate stats and deleting their
+    account (see graduate_and_anonymize). Returns how many were graduated.
+
+    Students who never got a graduation_year backfilled (see the "one more
+    thing" prompt in pages/04_Ask_a_Question.py) aren't matched by this and
+    still need the per-student "Mark a student graduated" fallback below.
+    """
+    client = get_client()
+    if client is None:
+        return 0
+    res = (
+        client.table("students")
+        .select("user_id")
+        .eq("college_id", college_id)
+        .eq("graduation_year", graduation_year)
+        .execute()
+    )
+    user_ids = [row["user_id"] for row in (res.data or [])]
+    count = 0
+    for user_id in user_ids:
+        if graduate_and_anonymize(user_id, college_id):
+            count += 1
+    return count
 
 
 def dso_override_step(

@@ -17,7 +17,7 @@ from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.vera_state import get_vera_state
 
-st.set_page_config(page_title="About", page_icon=FAVICON, layout="wide")
+st.set_page_config(page_title="About", page_icon=FAVICON, layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 

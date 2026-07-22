@@ -24,14 +24,24 @@ see data for the college their domain maps to.
 
 from __future__ import annotations
 
+import logging
 import time
 
 import streamlit as st
 
 from shared import config, db
 
+logger = logging.getLogger(__name__)
+
 _OTP_SEND_COOLDOWN_SECONDS = 60
 _OTP_MAX_VERIFY_ATTEMPTS = 5
+
+# "Remember me" cookie — see _restore_session_from_cookie() below and
+# migrations/007_web_sessions.sql. Chosen as a middle ground: long enough that
+# students aren't stuck re-requesting a slow OTP email every couple of days,
+# short enough to bound how long a leaked cookie stays useful.
+_SESSION_COOKIE_NAME = "session_token"
+_SESSION_TTL_DAYS = 7
 
 _LOCAL_USER = {
     "id": "local",
@@ -43,15 +53,82 @@ _LOCAL_USER = {
 }
 
 
+def _cookie_manager():
+    """A fresh CookieManager for *this* script run.
+
+    The underlying component crashes with a duplicate-element-key error if
+    constructed more than once in the same run, so every call site here goes
+    through this one function, and no call site should be reachable more than
+    once per run — see the guards in get_current_user()/_restore_session_from_cookie().
+    """
+    from streamlit_cookies_manager import CookieManager
+    return CookieManager(prefix="vera_")
+
+
+def _restore_session_from_cookie() -> dict | None:
+    """Look up the persisted-login cookie (if any) and restore auth_user from it.
+
+    The cookie component needs one browser round-trip before it's ready to
+    read — on the very first render of a brand-new browser session, ready()
+    is False. Rather than give up (which would mean cookie-based login never
+    works on a fresh visit), we force exactly one extra rerun to give it that
+    round-trip, then commit to whatever the result is.
+    """
+    cookies = _cookie_manager()
+    if not cookies.ready():
+        if not st.session_state.get("_cookie_wait_rerun"):
+            st.session_state["_cookie_wait_rerun"] = True
+            st.rerun()
+        return None
+
+    token = cookies.get(_SESSION_COOKIE_NAME)
+    if not token:
+        return None
+
+    user_id = db.resolve_web_session(token)
+    if not user_id:
+        return None
+    user_row = db.get_user(user_id)
+    if not user_row:
+        return None
+    college = db.get_college(user_row["college_id"]) if user_row.get("college_id") else None
+    return {
+        "id": user_row["id"],
+        "email": user_row.get("email", ""),
+        "name": user_row.get("name", ""),
+        "role": user_row["role"],
+        "college_id": user_row.get("college_id"),
+        "college_name": (college or {}).get("name", ""),
+        "mode": "hosted",
+    }
+
+
 def get_current_user() -> dict | None:
     """The authenticated user for this session, or None if login is required.
 
     In local mode this never returns None — it returns a synthetic student so the
     app runs without accounts, as before.
+
+    In hosted mode, a plain page reload used to sign a student out instantly:
+    st.session_state lives on the WebSocket connection, and a reload opens a
+    new one. This now falls back to the "remember me" cookie exactly once per
+    browser session (guarded by _cookie_restore_done) before giving up and
+    asking for a fresh login.
     """
     if not config.is_supabase_configured():
         return dict(_LOCAL_USER)
-    return st.session_state.get("auth_user")
+
+    user = st.session_state.get("auth_user")
+    if user is not None:
+        return user
+    if st.session_state.get("_cookie_restore_done"):
+        return None
+
+    user = _restore_session_from_cookie()
+    st.session_state["_cookie_restore_done"] = True
+    if user is not None:
+        st.session_state["auth_user"] = user
+    return user
 
 
 def is_logged_in() -> bool:
@@ -88,6 +165,23 @@ def require_login(title: str = "Sign in to Vera") -> dict:
 
 
 def logout() -> None:
+    user = st.session_state.get("auth_user")
+    if user and user.get("id"):
+        # Revoke server-side first — this is the actual security boundary,
+        # not whether the browser cookie itself gets cleared below. Revokes
+        # every "remember me" session for this user, not just this browser's
+        # (e.g. a second tab, or a since-stolen cookie), since there's no
+        # single-session-scoped identifier available at this point.
+        db.delete_web_sessions_for_user(user["id"])
+
+    try:
+        cookies = _cookie_manager()
+        if cookies.ready() and cookies.get(_SESSION_COOKIE_NAME):
+            del cookies[_SESSION_COOKIE_NAME]
+            cookies.save()
+    except Exception as e:
+        logger.warning("Failed to clear session cookie on logout: %s", e)
+
     for key in ("auth_user", "vera", "_vera_loaded_key", "chat_history",
                 "conversation_history", "request_timestamps", "_otp_email"):
         st.session_state.pop(key, None)
@@ -131,6 +225,20 @@ def _finalize_login(session_user) -> dict | None:
         "mode": "hosted",
     }
     st.session_state["auth_user"] = user
+
+    # Best-effort: sets the "remember me" cookie so a reload doesn't force a
+    # fresh OTP wait. Never worth failing the login itself over — a student
+    # who's just waited minutes for a code shouldn't see an error here.
+    try:
+        token = db.create_web_session(session_user.id, _SESSION_TTL_DAYS)
+        if token:
+            cookies = _cookie_manager()
+            if cookies.ready():
+                cookies[_SESSION_COOKIE_NAME] = token
+                cookies.save()
+    except Exception as e:
+        logger.warning("Failed to set session cookie after login: %s", e)
+
     return user
 
 

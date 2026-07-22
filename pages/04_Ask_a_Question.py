@@ -3,6 +3,7 @@ Your Timeline - Vera's main screen: compact chat on the left,
 scrollable visa timeline on the right.
 Page: 04_Ask_a_Question.py
 """
+import datetime
 import html
 
 import streamlit as st
@@ -15,8 +16,44 @@ from shared.reminders import compute_reminders, compute_custom_reminders
 from shared.chat_panel import render_chat_panel
 from shared.timeline_ui import render_timeline, render_circumstances_card
 from shared.timeline import build_timeline, infer_visa_type, enrich_step_with_origin
-from shared.vera_state import get_vera_state, set_timeline, add_timeline_steps, persist_vera_state
+from shared.vera_state import (
+    get_vera_state, set_timeline, add_timeline_steps, persist_vera_state, set_school_years,
+)
 from shared import auth, db
+
+
+@st.dialog("One more thing")
+def _prompt_missing_school_years(trip: dict):
+    """Backfills entering_year/graduation_year for accounts that onboarded
+    before these fields existed — needed so a DSO can graduate this
+    student's whole cohort at once instead of one at a time (see
+    pages/20_DSO_Dashboard.py's bulk_graduate_by_year)."""
+    st.write(
+        "We now use your entering and expected graduation year to keep your "
+        "timeline accurate long-term. Mind adding them?"
+    )
+    current_year = datetime.date.today().year
+    entering_options = [""] + list(range(current_year - 8, current_year + 1))[::-1]
+    graduation_options = [""] + list(range(current_year, current_year + 8))
+    entering_year = st.selectbox(
+        "Year you started your program", options=entering_options,
+        format_func=lambda y: "Select a year" if y == "" else str(y),
+    )
+    graduation_year = st.selectbox(
+        "Expected graduation year", options=graduation_options,
+        format_func=lambda y: "Select a year" if y == "" else str(y),
+    )
+    col_save, col_skip = st.columns(2)
+    with col_save:
+        if st.button("Save", type="primary", use_container_width=True):
+            if entering_year and graduation_year:
+                set_school_years(entering_year, graduation_year)
+                st.rerun()
+            else:
+                st.error("Please select both.")
+    with col_skip:
+        if st.button("Remind me later", use_container_width=True):
+            st.rerun()
 
 st.set_page_config(page_icon=FAVICON, page_title="Your Timeline - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
@@ -32,6 +69,17 @@ render_hamburger_menu(visa_type=visa_type)
 # The timeline is per-student persisted state, so it needs a signed-in user in
 # hosted mode. No-op in local mode.
 user = auth.require_login("Sign in to see your timeline")
+
+_trip_details = state.get("trip_details", {})
+if (
+    user and user.get("mode") == "hosted"
+    and state.get("profile", {}).get("visa_type") == "f-1"
+    and _trip_details.get("origin")
+    and (not _trip_details.get("entering_year") or not _trip_details.get("graduation_year"))
+    and not st.session_state.get("_skipped_school_years_prompt")
+):
+    st.session_state["_skipped_school_years_prompt"] = True
+    _prompt_missing_school_years(_trip_details)
 
 name = html.escape((state.get("profile", {}).get("name") or "").strip())
 if name:

@@ -2,6 +2,8 @@
 Trip details intake — country of origin, destination, and school.
 Page: 10_Trip_Details.py
 """
+import datetime
+
 import streamlit as st
 
 from shared.branding import FAVICON
@@ -83,6 +85,20 @@ with center:
     _school_index = SCHOOL_OPTIONS.index(_school_value) if _school_value in SCHOOL_OPTIONS else 0
     _school_other_default = _school_value if _school_index == 0 and _school_value else ""
 
+    _current_year = datetime.date.today().year
+    _entering_year_options = [""] + list(range(_current_year - 8, _current_year + 1))[::-1]
+    _graduation_year_options = [""] + list(range(_current_year, _current_year + 8))
+    _entering_year_value = _trip.get("entering_year") or ""
+    _graduation_year_value = _trip.get("graduation_year") or ""
+    _entering_year_index = (
+        _entering_year_options.index(_entering_year_value)
+        if _entering_year_value in _entering_year_options else 0
+    )
+    _graduation_year_index = (
+        _graduation_year_options.index(_graduation_year_value)
+        if _graduation_year_value in _graduation_year_options else 0
+    )
+
     with st.form("trip_details_form"):
         name = st.text_input(
             "Your name", value=_profile.get("name") or "", placeholder="What should Vera call you?"
@@ -113,6 +129,21 @@ with center:
             value=_school_other_default,
             placeholder="Your school's name",
         )
+        year_col1, year_col2 = st.columns(2)
+        with year_col1:
+            entering_year = st.selectbox(
+                "Year you started your program",
+                options=_entering_year_options,
+                index=_entering_year_index,
+                format_func=lambda y: "Select a year" if y == "" else str(y),
+            )
+        with year_col2:
+            graduation_year = st.selectbox(
+                "Expected graduation year",
+                options=_graduation_year_options,
+                index=_graduation_year_index,
+                format_func=lambda y: "Select a year" if y == "" else str(y),
+            )
 
         st.markdown(
             """
@@ -137,13 +168,18 @@ with center:
             "" if school_choice in ("", OTHER) else school_choice
         )
         needs_school = visa_type in STUDENT_VISA_TYPES
-        if not visa_type or not destination or (needs_school and not school):
+        needs_years = needs_school
+        if (
+            not visa_type or not destination or (needs_school and not school)
+            or (needs_years and (not entering_year or not graduation_year))
+        ):
             st.error(
                 "Please select a visa type and a destination"
-                + (", and enter your school." if needs_school else ".")
+                + (", enter your school, and select your entering/graduation year."
+                   if needs_school else ".")
             )
         else:
-            set_trip_details(origin, destination, school)
+            set_trip_details(origin, destination, school, entering_year, graduation_year)
             set_profile(name.strip(), visa_type)
 
             is_supported = visa_type in STUDENT_VISA_TYPES and destination == "United States"

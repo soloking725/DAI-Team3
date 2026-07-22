@@ -55,14 +55,20 @@ if hosted:
       </div>
     """
     session_note = (
-        "Signing out clears your session on this device; your account data stays in your "
-        "school's database until it's deleted. You can permanently delete your own account "
-        "at any time from Settings — this is available to you regardless of whether your "
-        "school requires you to use Vera. When your school marks you graduated, your "
-        "individual record is deleted the same way, after saving anonymized cohort stats "
-        "(visa type, origin country, final step reached, whether you had flagged "
-        "circumstances) with no name, email, or account id attached — so your school can "
-        "learn from patterns without keeping an identifiable record of you specifically."
+        "To keep you signed in across page reloads, Vera stores a single-purpose login "
+        "cookie in your browser — an unguessable token that only means \"this browser is "
+        "signed in as you,\" nothing else. It isn't used for tracking or advertising and "
+        "isn't shared with anyone. Signing out deletes it and immediately revokes it on "
+        "our end (on every device, not just this one), and it also expires on its own "
+        "after 7 days either way. Your account data itself stays in your school's database "
+        "until it's deleted. You can permanently delete your own account at any time from "
+        "Settings — this removes your data and your sign-in identity entirely, and is "
+        "available to you regardless of whether your school requires you to use Vera. "
+        "When your school marks you graduated, your individual record is deleted the same "
+        "way, after saving anonymized cohort stats (visa type, origin country, final step "
+        "reached, whether you had flagged circumstances) with no name, email, or account id "
+        "attached — so your school can learn from patterns without keeping an identifiable "
+        "record of you specifically."
     )
 else:
     intro = "Vera doesn't use accounts or logins right now. Here's what's actually stored, and where."

@@ -225,9 +225,36 @@ if sel_step and st.button("Apply override"):
     st.rerun()
 
 # --- Graduation: anonymize + delete --------------------------------------
+st.markdown("### Graduate an entire class")
+st.caption(
+    "Graduates every student whose graduation year matches — same anonymize-then-delete "
+    "as below, applied to the whole cohort at once. Students who never entered a "
+    "graduation year (accounts from before this field existed) aren't included here; "
+    "graduate them individually below instead."
+)
+_grad_years = sorted({r["graduation_year"] for r in roster if r.get("graduation_year")})
+if _grad_years:
+    gy1, gy2 = st.columns([2, 1])
+    with gy1:
+        bulk_grad_year = st.selectbox("Graduation year", _grad_years, key="_bulk_grad_year")
+    _matching = sum(1 for r in roster if r.get("graduation_year") == bulk_grad_year)
+    st.caption(f"{_matching} student(s) have graduation year {bulk_grad_year}.")
+    confirm_bulk_grad = st.checkbox(
+        f"I understand this permanently deletes all {_matching} matching accounts after "
+        "archiving anonymized stats.",
+        key="_bulk_grad_confirm",
+    )
+    if st.button("Graduate this class", disabled=not confirm_bulk_grad):
+        graduated_count = db.bulk_graduate_by_year(college_id, bulk_grad_year)
+        st.success(f"Graduated {graduated_count} student(s) with graduation year {bulk_grad_year}.")
+        st.rerun()
+else:
+    st.caption("No students have a graduation year on file yet.")
+
 st.markdown("### Mark a student graduated")
 st.caption(
-    "Records this student's anonymized cohort stats (visa type, origin country, final "
+    "For one-off cases (e.g. an account from before graduation year was collected) — "
+    "records this student's anonymized cohort stats (visa type, origin country, final "
     "step reached, whether they had flagged circumstances — no name, email, or account "
     "id) for your school to learn from, then permanently deletes their individual "
     "account. This can't be undone."

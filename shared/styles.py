@@ -11,6 +11,20 @@ GLOBAL_CSS = """
     header { visibility: hidden; }
     .stDeployButton { display: none; }
 
+    /* Navigation here is only ever the custom hamburger menu (see
+       shared/components.py's render_hamburger_menu) — Streamlit's own
+       auto-generated sidebar page list is never meant to be reachable. Each
+       page previously relied on initial_sidebar_state="collapsed" alone,
+       which only sets the *default* state: the small ">" control still lets
+       anyone expand it and jump straight to any page (bypassing intended
+       flow, e.g. landing on a mid-onboarding page directly), and any page
+       that forgot the param entirely (as a few did) rendered it wide open.
+       Hiding the nav list and its toggle outright closes both gaps —
+       actual per-page access control still lives in each page's own
+       auth.require_login()/require_role() check, not in hiding this UI. */
+    [data-testid="stSidebarNav"] { display: none; }
+    [data-testid="stSidebarCollapsedControl"] { display: none; }
+
     /* Every st.markdown(css_string) call used purely to inject <style>/<link>
        tags (theme.py also injects a Tabler Icons <link>) still renders as a
        zero-height flex child of the page's vertical block, so Streamlit's
