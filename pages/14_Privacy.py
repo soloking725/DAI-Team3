@@ -54,22 +54,28 @@ if hosted:
         </p>
       </div>
     """
-    session_note = (
-        "To keep you signed in across page reloads, Vera stores a single-purpose login "
-        "cookie in your browser — an unguessable token that only means \"this browser is "
-        "signed in as you,\" nothing else. It isn't used for tracking or advertising and "
-        "isn't shared with anyone. Signing out deletes it and immediately revokes it on "
-        "our end (on every device, not just this one), and it also expires on its own "
-        "after 7 days either way. Your account data itself stays in your school's database "
-        "until it's deleted. You can permanently delete your own account at any time from "
-        "Settings — this removes your data and your sign-in identity entirely, and is "
-        "available to you regardless of whether your school requires you to use Vera. "
-        "When your school marks you graduated, your individual record is deleted the same "
-        "way, after saving anonymized cohort stats (visa type, origin country, final step "
-        "reached, whether you had flagged circumstances) with no name, email, or account id "
-        "attached — so your school can learn from patterns without keeping an identifiable "
-        "record of you specifically."
-    )
+    session_note = """
+      <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;
+                  padding:16px 18px;margin-top:12px">
+        <p style="font-weight:500;margin:0 0 6px">Your sign-in session</p>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0">
+          To keep you signed in across page reloads, Vera stores a single-purpose login
+          cookie in your browser — an unguessable token that only means "this browser is
+          signed in as you," nothing else. It isn't used for tracking or advertising and
+          isn't shared with anyone. Signing out deletes it and immediately revokes it on
+          our end (on every device, not just this one), and it also expires on its own
+          after 7 days either way. Your account data itself stays in your school's database
+          until it's deleted. You can permanently delete your own account at any time from
+          Settings — this removes your data and your sign-in identity entirely, and is
+          available to you regardless of whether your school requires you to use Vera.
+          When your school marks you graduated, your individual record is deleted the same
+          way, after saving anonymized cohort stats (visa type, origin country, final step
+          reached, whether you had flagged circumstances) with no name, email, or account id
+          attached — so your school can learn from patterns without keeping an identifiable
+          record of you specifically.
+        </p>
+      </div>
+    """
 else:
     intro = "Vera doesn't use accounts or logins right now. Here's what's actually stored, and where."
     trip_details_block = """
@@ -86,7 +92,10 @@ else:
       </div>
     """
     messages_block = ""
-    session_note = "Use Settings to reset your progress and start a fresh, unlinked session."
+    session_note = (
+        '<p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:16px">'
+        "Use Settings to reset your progress and start a fresh, unlinked session.</p>"
+    )
 
 st.markdown(
     f"""
@@ -127,7 +136,7 @@ st.markdown(
         </p>
       </div>
 
-      <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:16px">{session_note}</p>
+      {session_note}
     </div>
     """,
     unsafe_allow_html=True,
