@@ -44,10 +44,14 @@ _SESSION_COOKIE_NAME = "session_token"
 _SESSION_TTL_DAYS = 7
 
 # How many extra reruns we'll force waiting for the cookie component to
-# report ready() before giving up on this browser session. One is usually
-# enough, but a slow network/extension can need a couple more — see
-# _restore_session_from_cookie().
-_COOKIE_READY_MAX_RERUNS = 3
+# report ready() before giving up on this browser session. This has to cover
+# a full browser round-trip on the *first* mount of the component (load its
+# iframe, execute its JS bundle, call back) — on a cold Streamlit Cloud
+# instance that alone can burn through a handful of quick reruns, and giving
+# up too early here is exactly what made a plain page reload silently log
+# students out (see the retries-exhausted branch below: once this budget is
+# spent we commit to "no session" for the rest of the browser session).
+_COOKIE_READY_MAX_RERUNS = 10
 
 _LOCAL_USER = {
     "id": "local",
