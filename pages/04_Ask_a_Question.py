@@ -172,11 +172,6 @@ if current_step and origin_country and current_step.get("category") == "intervie
     current_step["origin_enriched"] = True
     persist_vera_state()
 
-total_steps = len(state["timeline"])
-done_steps = sum(1 for s in state["timeline"] if s.get("status") == "complete")
-if total_steps:
-    st.progress(done_steps / total_steps, text=f"{done_steps} of {total_steps} steps complete")
-
 with st.container(key="vera_main_row"):
     left, right = st.columns([1, 2.5], gap="medium")
 

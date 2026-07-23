@@ -18,6 +18,7 @@ existing call sites keep working.
 
 import json
 import logging
+import time
 import uuid
 from pathlib import Path
 
@@ -30,6 +31,14 @@ logger = logging.getLogger(__name__)
 
 _project_root = Path(__file__).resolve().parent.parent
 SESSIONS_DIR = _project_root / "local" / "vera_sessions"
+
+# Local mode has no accounts, so a session file lives as long as its ?vid= URL
+# does — with no expiry, a link leaked once (browser history, a shared screen,
+# a pasted URL) would expose that student's trip details and extenuating-
+# circumstances notes indefinitely. Bounding the file's lifetime by its last
+# save time caps that exposure window without requiring the login this mode
+# is deliberately designed not to have.
+SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 
 
 def _hosted() -> bool:
@@ -78,6 +87,10 @@ def load_session(key: str) -> dict:
         return db.load_state(key)
     path = SESSIONS_DIR / f"{key}.json"
     if not path.exists():
+        return {}
+    if time.time() - path.stat().st_mtime > SESSION_TTL_SECONDS:
+        logger.info("Vera session %s expired (older than TTL); discarding", key)
+        path.unlink(missing_ok=True)
         return {}
     try:
         return json.loads(path.read_text())

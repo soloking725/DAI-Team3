@@ -270,8 +270,20 @@ def render_hamburger_menu(visa_type: str = "f-1"):
         col1, col2, col3 = st.columns([1, 10, 1], vertical_alignment="center")
         with col1:
             with st.popover("☰"):
+                from shared import auth, config
+
                 st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")
                 st.page_link("app.py", label="Home", icon=":material/home:")
+                # Same top tier as Timeline/Home (above the divider), but only
+                # for a signed-in DSO — students should never see this link,
+                # and it's the only way back to the dashboard from any other
+                # page once a DSO has navigated away from it.
+                _user = auth.get_current_user() if config.is_supabase_configured() else None
+                if _user and _user.get("role") == "dso":
+                    st.page_link(
+                        "pages/20_DSO_Dashboard.py", label="DSO Dashboard",
+                        icon=":material/admin_panel_settings:",
+                    )
                 st.divider()
                 st.page_link(
                     _VISA_TYPE_PAGES.get(visa_type, _VISA_TYPE_PAGES["f-1"]),
@@ -297,7 +309,6 @@ def render_hamburger_menu(visa_type: str = "f-1"):
                 st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
                 st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
 
-                from shared import auth, config
                 if config.is_supabase_configured() and auth.is_logged_in():
                     st.divider()
                     if st.button("Sign out", icon=":material/logout:", use_container_width=True):

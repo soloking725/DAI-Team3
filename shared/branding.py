@@ -33,3 +33,15 @@ def get_logo_data_uri() -> str:
 
 def has_logo() -> bool:
     return bool(get_logo_data_uri())
+
+
+@lru_cache(maxsize=1)
+def get_favicon_data_uri() -> str:
+    """Return the favicon (the compact checkmark mark, no wordmark) as a
+    data: URI, or "" if the asset is missing — for reusing it inline in a
+    page's own HTML (e.g. app.py's hero icon), not just as the browser tab
+    icon via FAVICON/st.set_page_config."""
+    if not _FAVICON_PATH.exists():
+        return ""
+    encoded = base64.b64encode(_FAVICON_PATH.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"

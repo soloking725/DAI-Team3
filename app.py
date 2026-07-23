@@ -6,7 +6,7 @@ import html
 import logging
 import streamlit as st
 
-from shared.branding import FAVICON
+from shared.branding import FAVICON, get_favicon_data_uri
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
@@ -35,6 +35,16 @@ render_hamburger_menu(visa_type=_profile.get("visa_type") or "f-1")
 _name = html.escape((_profile.get("name") or "").strip())
 _headline = f"Welcome back, {_name}" if _name else "Welcome to Vera"
 
+# The hero icon uses the favicon (the compact checkmark mark) rather than a
+# generic chat-bubble glyph, so the one screen without the full header
+# wordmark still reads as unmistakably Vera. Falls back to the old icon if
+# the asset is missing (e.g. a fresh checkout without assets/ populated).
+_favicon_uri = get_favicon_data_uri()
+_hero_icon_html = (
+    f'<img src="{_favicon_uri}" alt="" style="width:28px;height:28px;object-fit:contain">'
+    if _favicon_uri else '<i class="ti ti-message-circle-2" style="font-size:26px;color:var(--text-accent)"></i>'
+)
+
 # Hero sits in normal flow (no fixed 75vh) so the Get started button below it is
 # part of the same vertical rhythm and reads as centered, rather than being
 # pushed a full viewport-height down the page.
@@ -45,7 +55,7 @@ st.markdown(
 
       <div class="vera-hero-icon" style="width:52px;height:52px;border-radius:50%;background:var(--bg-accent);
                   display:flex;align-items:center;justify-content:center;animation:vera-fade-up 0.5s ease-out both, vera-pulse-ring 2.8s ease-out 0.5s infinite">
-        <i class="ti ti-message-circle-2" style="font-size:26px;color:var(--text-accent)"></i>
+        {_hero_icon_html}
       </div>
 
       <div style="animation:vera-fade-up 0.5s ease-out 0.12s both">

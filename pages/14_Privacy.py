@@ -87,7 +87,8 @@ else:
           you flag (e.g. a prior denial, SEVIS issue, or hardship — plus any notes you add), and which
           timeline steps you've marked complete are saved to a file on the server, keyed to a random
           session ID kept in your browser's URL (not a cookie, not an account). Anyone with that exact
-          URL could view the same session.
+          URL could view the same session, so don't share the link. Sessions that go untouched for
+          30 days are automatically deleted.
         </p>
       </div>
     """

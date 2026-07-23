@@ -160,6 +160,17 @@ def render_timeline(steps: list, allow_complete: bool = True, visa_type: str = "
     """
     st.markdown(TIMELINE_CSS, unsafe_allow_html=True)
 
+    # Rendered here (inside this fragment) rather than by the caller: "Mark
+    # complete"/"Undo" below only trigger a fragment-scoped rerun (see the
+    # docstring above for why), so a progress bar drawn outside this
+    # fragment would never reflect the change until an unrelated full-page
+    # reload happened — it would read "1 of 7" forever after marking a step
+    # complete even though the step list right below it updated correctly.
+    total_steps = len(steps)
+    done_steps = sum(1 for s in steps if s.get("status") == "complete")
+    if total_steps:
+        st.progress(done_steps / total_steps, text=f"{done_steps} of {total_steps} steps complete")
+
     current_idx = _first_incomplete_index(steps)
 
     with st.container(height=480, border=False):

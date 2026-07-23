@@ -22,10 +22,16 @@ stable function signatures.
    `migrations/006_chat_rate_limits.sql` (persisted per-user chat rate
    limiting), `migrations/007_web_sessions.sql` ("remember me" login
    persistence across page reloads), `migrations/008_school_years.sql`
-   (entering/graduation year, for graduating a whole cohort at once), and
+   (entering/graduation year, for graduating a whole cohort at once),
    `migrations/009_jwt_college_claim.sql` (makes the RLS policies below
-   actually enforceable — see the Row-Level Security note) — same process,
-   run once each.
+   actually enforceable — see the Row-Level Security note),
+   `migrations/010_visa_passport_expiration.sql` (denormalizes student-entered
+   visa/passport expiration dates onto the students row for the DSO roster),
+   `migrations/011_reminder_targeting.sql` (lets a DSO scope a custom reminder
+   to a visa type and/or timeline step instead of always broadcasting to
+   everyone), and `migrations/012_rls_completeness.sql` (adds the same-college
+   RLS policy that `colleges` and `users` were missing — every other
+   tenant-scoped table already had one) — same process, run once each.
 
 3. **Seed your colleges.** A user's email domain decides which college they join,
    so you can run more than one — e.g. a throwaway test college alongside the
@@ -77,8 +83,9 @@ can do for you:**
 1. Run `migrations/009_jwt_college_claim.sql` (defines the claim-populating
    function and grants Supabase's auth service permission to call it).
 2. In the Supabase dashboard: **Authentication → Hooks → Customize Access
-   Token (JWT) Claims hook** → enable it → select
-   `public.custom_access_token_hook`.
+   Token (JWT) Claims hook** → hook type **Postgres** (not HTTPS — the
+   function already lives in your database, there's no external endpoint)
+   → select `public.custom_access_token_hook` → enable it.
 3. Sign out and back in (existing sessions/cookies were issued before the
    claim existed, so they won't have it until a fresh token is minted) and
    confirm in a JWT decoder (e.g. jwt.io) that the token now has a
