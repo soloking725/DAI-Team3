@@ -3,7 +3,19 @@ Global CSS styles that override Streamlit defaults completely.
 Apply on every page to maintain a consistent, non-Streamlit look.
 """
 
-GLOBAL_CSS = """
+
+# Hosted-mode "remember me" now lives in a ?st= URL query param (see
+# shared/auth.py) instead of only a cookie — a real, revocable token, but
+# unlike a cookie it's visible in Referer headers on any outbound link a
+# student might click (e.g. the "view your school's guide" / official-form
+# links to external sites). This meta tag is injected via get_global_css()
+# below, on every page, so no cross-origin request ever carries this page's
+# full URL — same-origin requests are unaffected. A meta element is honored
+# by the browser wherever it lands in the document, including one inserted
+# into a Streamlit-rendered <div> like this rather than the literal <head>.
+_REFERRER_POLICY_META = '<meta name="referrer" content="same-origin">'
+
+GLOBAL_CSS = _REFERRER_POLICY_META + """
 <style>
     /* Hide Streamlit branding */
     #MainMenu { visibility: hidden; }

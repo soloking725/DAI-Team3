@@ -13,6 +13,15 @@ Two modes, switched on config.is_supabase_configured():
   college by the email's domain, create/update the app-level users + students
   rows, and cache the identity in st.session_state.
 
+  "Stay logged in across a reload" is carried primarily via a ?st= URL query
+  param (an opaque, revocable, TTL-bound token — see migrations/007_web_sessions.sql),
+  not a cookie. A browser cookie is still attempted as a secondary, best-effort
+  fallback, but query params are the one thing Streamlit reliably round-trips
+  on every rerun; cookies set via a custom-component iframe are a widely-reported
+  source of "doesn't survive F5" bugs on Streamlit Community Cloud specifically
+  (the whole app runs inside the platform's own wrapper iframe) across every
+  cookie-manager package in the ecosystem, not something specific to this app.
+
 Role model for the MVP: 'student' by default; 'dso' if the email is in the
 DSO_EMAILS allow-list. No self-serve role changes.
 
@@ -36,10 +45,22 @@ logger = logging.getLogger(__name__)
 _OTP_SEND_COOLDOWN_SECONDS = 60
 _OTP_MAX_VERIFY_ATTEMPTS = 5
 
-# "Remember me" cookie — see _restore_session_from_cookie() below and
-# migrations/007_web_sessions.sql. Chosen as a middle ground: long enough that
-# students aren't stuck re-requesting a slow OTP email every couple of days,
-# short enough to bound how long a leaked cookie stays useful.
+# Caps total OTP sends per email *domain* in a rolling window — the
+# session-local cooldown above resets for free in a new tab/incognito
+# window, so it does nothing against a script working through many
+# different (often nonexistent) usernames at one allowed domain. This is
+# the actual backstop; see migrations/014_otp_rate_limits.sql. Sized to
+# comfortably clear a real pilot college's first-day signup rush (a few
+# hundred students within an hour) while still bounding a flood.
+_OTP_DOMAIN_MAX_SENDS = 100
+_OTP_DOMAIN_WINDOW_SECONDS = 3600
+
+# "Remember me" session TTL, shared by both persistence mechanisms below —
+# the primary ?st= query param (_restore_session_from_query_param) and the
+# secondary best-effort cookie (_restore_session_from_cookie). See
+# migrations/007_web_sessions.sql. Chosen as a middle ground: long enough
+# that students aren't stuck re-requesting a slow OTP email every couple of
+# days, short enough to bound how long a leaked token stays useful.
 _SESSION_COOKIE_NAME = "session_token"
 _SESSION_TTL_DAYS = 7
 
@@ -63,6 +84,58 @@ _LOCAL_USER = {
 }
 
 
+_SESSION_QUERY_PARAM = "st"
+
+
+def _user_from_web_session(token: str) -> dict | None:
+    """Shared lookup for both the query-param and cookie restore paths —
+    resolves an opaque "remember me" token (migrations/007_web_sessions.sql)
+    to the user it belongs to, or None if it's missing/expired/revoked."""
+    if not token:
+        return None
+    user_id = db.resolve_web_session(token)
+    if not user_id:
+        return None
+    user_row = db.get_user(user_id)
+    if not user_row:
+        return None
+    college = db.get_college(user_row["college_id"]) if user_row.get("college_id") else None
+    return {
+        "id": user_row["id"],
+        "email": user_row.get("email", ""),
+        "name": user_row.get("name", ""),
+        "role": user_row["role"],
+        "college_id": user_row.get("college_id"),
+        "college_name": (college or {}).get("name", ""),
+        "mode": "hosted",
+    }
+
+
+def _restore_session_from_query_param() -> dict | None:
+    """The primary "stay logged in across a reload" mechanism — a
+    revocable, opaque session token carried in the URL's ?st= param.
+
+    This exists because the cookie path below (streamlit_cookies_manager)
+    is unreliable specifically on Streamlit Community Cloud: the whole app
+    is itself served inside the platform's own wrapper iframe, so the
+    cookie component's bridge from its own component-iframe up to
+    "the app" (not the true top-level page) plus Streamlit's own
+    component-value caching adds up to a widely-reported class of bugs
+    across every cookie-manager package in the Streamlit ecosystem, not
+    something specific to a coding mistake here (see the streamlit-cookies-
+    manager and streamlit-authenticator issue trackers). Query params don't
+    go through any of that — they're just part of the URL Streamlit already
+    round-trips on every rerun, which is exactly why local mode's ?vid=
+    session id has always survived reloads reliably while this cookie never
+    did. Same trust model as the cookie it replaces as primary: an opaque,
+    revocable token (never the raw Supabase JWT), same TTL, same server-side
+    revocation on logout — just carried somewhere Streamlit actually
+    guarantees round-trips.
+    """
+    token = st.query_params.get(_SESSION_QUERY_PARAM)
+    return _user_from_web_session(token) if token else None
+
+
 def _cookie_manager():
     """A fresh CookieManager for *this* script run.
 
@@ -75,10 +148,14 @@ def _cookie_manager():
     return CookieManager(prefix="vera_")
 
 
-def _restore_session_from_cookie() -> tuple[dict | None, bool]:
+def _restore_session_from_cookie() -> tuple[dict | None, bool, str]:
     """Look up the persisted-login cookie (if any) and restore auth_user from it.
 
-    Returns (user_or_None, definitive). `definitive` is False when the cookie
+    Returns (user_or_None, definitive, token). `token` is returned alongside
+    the user so the caller can promote it into the ?st= query param (the
+    primary mechanism — see _restore_session_from_query_param) once the
+    cookie has successfully produced one, so the *next* load doesn't need
+    the cookie at all. `definitive` is False when the cookie
     component still hasn't finished its browser round-trip — the caller must
     not cache that as "no session" or a slow-loading component would lock the
     user out of cookie restore for the rest of the browser session.
@@ -104,28 +181,10 @@ def _restore_session_from_cookie() -> tuple[dict | None, bool]:
         # which crashes with StreamlitDuplicateElementKey the moment two auth
         # checks land in one script run (e.g. render_hamburger_menu's
         # is_logged_in() followed by a page's own require_login()).
-        return None, True
+        return None, True, ""
 
-    token = cookies.get(_SESSION_COOKIE_NAME)
-    if not token:
-        return None, True
-
-    user_id = db.resolve_web_session(token)
-    if not user_id:
-        return None, True
-    user_row = db.get_user(user_id)
-    if not user_row:
-        return None, True
-    college = db.get_college(user_row["college_id"]) if user_row.get("college_id") else None
-    return {
-        "id": user_row["id"],
-        "email": user_row.get("email", ""),
-        "name": user_row.get("name", ""),
-        "role": user_row["role"],
-        "college_id": user_row.get("college_id"),
-        "college_name": (college or {}).get("name", ""),
-        "mode": "hosted",
-    }, True
+    token = cookies.get(_SESSION_COOKIE_NAME) or ""
+    return _user_from_web_session(token), True, token
 
 
 def get_current_user() -> dict | None:
@@ -136,10 +195,12 @@ def get_current_user() -> dict | None:
 
     In hosted mode, a plain page reload used to sign a student out instantly:
     st.session_state lives on the WebSocket connection, and a reload opens a
-    new one. This falls back to the "remember me" cookie, retrying across a
-    few reruns (guarded by _cookie_restore_done, which is only set once the
-    cookie component has actually reported ready) before giving up and asking
-    for a fresh login.
+    new one. The ?st= query param (see _restore_session_from_query_param) is
+    the primary fix for that — checked first since it's synchronous and
+    doesn't need any browser round-trip. The cookie is only consulted as a
+    secondary, best-effort path (e.g. a bookmarked/shared URL that's lost its
+    query string) — see _restore_session_from_cookie's docstring for why it
+    can't be the primary mechanism on its own.
     """
     if not config.is_supabase_configured():
         return dict(_LOCAL_USER)
@@ -147,14 +208,26 @@ def get_current_user() -> dict | None:
     user = st.session_state.get("auth_user")
     if user is not None:
         return user
+
+    user = _restore_session_from_query_param()
+    if user is not None:
+        st.session_state["auth_user"] = user
+        st.session_state["_cookie_restore_done"] = True
+        return user
+
     if st.session_state.get("_cookie_restore_done"):
         return None
 
-    user, definitive = _restore_session_from_cookie()
+    user, definitive, token = _restore_session_from_cookie()
     if definitive:
         st.session_state["_cookie_restore_done"] = True
     if user is not None:
         st.session_state["auth_user"] = user
+        # Promote to the query param too — once the cookie has produced a
+        # user, subsequent reruns (and the very next page load) should be
+        # able to use the fast, reliable path instead of doing this again.
+        if token:
+            st.query_params[_SESSION_QUERY_PARAM] = token
     return user
 
 
@@ -195,11 +268,13 @@ def logout() -> None:
     user = st.session_state.get("auth_user")
     if user and user.get("id"):
         # Revoke server-side first — this is the actual security boundary,
-        # not whether the browser cookie itself gets cleared below. Revokes
-        # every "remember me" session for this user, not just this browser's
-        # (e.g. a second tab, or a since-stolen cookie), since there's no
-        # single-session-scoped identifier available at this point.
+        # not whether the browser cookie/query param themselves get cleared
+        # below. Revokes every "remember me" session for this user, not just
+        # this browser's (e.g. a second tab, or a since-stolen token), since
+        # there's no single-session-scoped identifier available at this point.
         db.delete_web_sessions_for_user(user["id"])
+
+    st.query_params.pop(_SESSION_QUERY_PARAM, None)
 
     try:
         cookies = _cookie_manager()
@@ -253,18 +328,26 @@ def _finalize_login(session_user) -> dict | None:
     }
     st.session_state["auth_user"] = user
 
-    # Best-effort: sets the "remember me" cookie so a reload doesn't force a
-    # fresh OTP wait. Never worth failing the login itself over — a student
-    # who's just waited minutes for a code shouldn't see an error here.
+    # "Remember me" so a reload doesn't force a fresh OTP wait. The query
+    # param is the primary mechanism (reliable — see
+    # _restore_session_from_query_param's docstring) and is set
+    # unconditionally; the cookie is attempted too, best-effort, purely as a
+    # fallback for a URL that loses its query string (e.g. a bookmark saved
+    # without it). Neither is worth failing the login itself over — a
+    # student who's just waited minutes for a code shouldn't see an error.
     try:
         token = db.create_web_session(session_user.id, _SESSION_TTL_DAYS)
         if token:
-            cookies = _cookie_manager()
-            if cookies.ready():
-                cookies[_SESSION_COOKIE_NAME] = token
-                cookies.save()
+            st.query_params[_SESSION_QUERY_PARAM] = token
+            try:
+                cookies = _cookie_manager()
+                if cookies.ready():
+                    cookies[_SESSION_COOKIE_NAME] = token
+                    cookies.save()
+            except Exception as e:
+                logger.warning("Failed to set session cookie after login (query param still works): %s", e)
     except Exception as e:
-        logger.warning("Failed to set session cookie after login: %s", e)
+        logger.warning("Failed to create a persisted login session: %s", e)
         st.toast("Couldn't save your login for next time — you may need to sign in again after refreshing.", icon="⚠️")
 
     return user
@@ -274,6 +357,23 @@ def _perform_send_code(email: str, client) -> None:
     """The actual OTP send, run only after the button has already been
     re-rendered as disabled (see _render_otp_flow) so a fast second click
     can't slip in and trigger a duplicate email."""
+    from shared import db
+
+    domain = email.split("@")[-1] if "@" in email else ""
+    allowed, _wait_seconds = db.check_and_increment_otp_domain_rate_limit(
+        domain, _OTP_DOMAIN_MAX_SENDS, _OTP_DOMAIN_WINDOW_SECONDS
+    )
+    if not allowed:
+        # Deliberately vague — no exact counts/thresholds, so this doesn't
+        # help an attacker calibrate around the limit.
+        st.session_state["_otp_sent_at"] = st.session_state.pop("_otp_prev_sent_at", 0.0)
+        st.session_state["_otp_flash"] = (
+            "error",
+            "Too many login attempts for this school right now. Please try again later.",
+        )
+        st.session_state.pop("_otp_pending_send", None)
+        st.session_state.pop("_otp_prev_sent_at", None)
+        return
     try:
         client.auth.sign_in_with_otp({"email": email})
         st.session_state["_otp_email"] = email

@@ -51,8 +51,8 @@ def store_in_chroma(chunks, metadata_template):
         existing = collection.get(where={"doc_key": metadata_template["doc_key"]})
         if existing["ids"]:
             collection.delete(ids=existing["ids"])
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  [WARN] Could not clear existing chunks for {metadata_template['doc_key']}: {e}")
 
     for i, chunk in enumerate(chunks):
         doc_id = f"{metadata_template['doc_key']}_{i}"
@@ -793,8 +793,8 @@ def run_static_ingestion():
     try:
         client.delete_collection(name=COLLECTION_NAME)
         print(f"Deleted existing collection '{COLLECTION_NAME}'")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  [WARN] No existing collection to delete (or delete failed): {e}")
 
     collection = client.get_or_create_collection(name=COLLECTION_NAME)
     print(f"Collection '{COLLECTION_NAME}' ready.\n")

@@ -90,6 +90,15 @@ PANEL_CSS = """
         background:#fffbeb; border:1px solid #f6e05e; border-left:3px solid #d69e2e;
         padding:6px 8px; margin-top:4px; font-size:11px; color:#975a16; border-radius:6px;
     }
+    /* Streamlit overlays its own "Press Enter to submit form · N/1000" hint
+       inside the input's own box (bottom-right, absolutely positioned) once
+       max_chars is set — in this panel's narrow column that hint sits right
+       on top of the last few typed characters instead of below them. The
+       Send button already makes the "press enter" hint redundant here, so
+       hide the overlay outright rather than fight its positioning. */
+    div.st-key-vera_chat_input_row [data-testid="InputInstructions"] {
+        display: none;
+    }
 </style>
 """
 
@@ -234,15 +243,16 @@ def render_chat_panel():
         st.info(SIGN_IN_REQUIRED_MESSAGE)
         return
 
-    with st.form("vera_chat_form", clear_on_submit=True):
-        user_input = st.text_input(
-            "Ask about your next step",
-            placeholder="Ask about your next step",
-            key="vera_chat_input",
-            label_visibility="collapsed",
-            max_chars=MAX_INPUT_LENGTH,
-        )
-        submitted = st.form_submit_button("Send", use_container_width=True)
+    with st.container(key="vera_chat_input_row"):
+        with st.form("vera_chat_form", clear_on_submit=True):
+            user_input = st.text_input(
+                "Ask about your next step",
+                placeholder="Ask about your next step",
+                key="vera_chat_input",
+                label_visibility="collapsed",
+                max_chars=MAX_INPUT_LENGTH,
+            )
+            submitted = st.form_submit_button("Send", use_container_width=True)
 
     if submitted and user_input and user_input.strip():
         question = user_input.strip()

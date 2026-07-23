@@ -1,37 +1,41 @@
 """
-Upload the school's visa guide PDF; Vera extracts any extra required
-steps and folds them into the timeline.
+Wizard step between Extenuating Circumstances and the timeline: hands off to
+whatever the school's DSO has published, rather than letting a student upload
+their own copy of the guide.
 
-In hosted mode, the DSO now uploads the guide once for the whole college
-(see pages/20_DSO_Dashboard.py) and every student inherits it automatically
-(see pages/04_Ask_a_Question.py) — this page becomes a no-op there so
-students aren't asked to duplicate work their school already did. It's still
-the only guide-upload path in local mode, where there's no college/DSO.
+Students previously could upload their own PDF here and have Vera extract
+steps from it — but the DSO dashboard (pages/20_DSO_Dashboard.py) now does
+that once for the whole college, and every student inherits the result
+automatically (see pages/04_Ask_a_Question.py's add_timeline_steps call). A
+self-serve upload duplicated that work and risked out-of-sync/incorrect
+steps a student's own PDF might introduce, so this page no longer accepts
+uploads at all — it just tells the student what's coming and lets them
+continue.
 Page: 12_School_Guide_Upload.py
 """
-import html
-
 import streamlit as st
 
 from shared.branding import FAVICON
 from shared.styles import get_global_css
 from shared.theme import get_vera_css
 from shared.components import render_hamburger_menu
-from shared.vera_state import get_vera_state, add_timeline_steps
-from shared.pdf_guide import extract_steps_from_pdf, PdfExtractionError
-from shared.config import MAX_PDF_UPLOAD_MB
+from shared.vera_state import get_vera_state
 from shared import auth, config, db
 
 state = get_vera_state()
 render_hamburger_menu(visa_type=state.get("profile", {}).get("visa_type") or "f-1")
 
-st.set_page_config(page_icon=FAVICON, page_title="Add your school's visa guide - Vera", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_icon=FAVICON, page_title="Your school's visa guide - Vera", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 st.markdown(get_vera_css(), unsafe_allow_html=True)
 
+college = None
 if config.is_supabase_configured():
-    user = auth.require_login("Sign in to add your school's visa guide")
+    user = auth.require_login("Sign in to continue")
     college = db.get_college(user["college_id"]) if user and user.get("college_id") else None
+
+_, center, _ = st.columns([1, 2, 1])
+with center:
     if college and college.get("guide_steps"):
         st.markdown(
             """
@@ -39,96 +43,40 @@ if config.is_supabase_configured():
               <h1 style="margin:0 0 6px">Your school's guide is already added</h1>
               <p style="font-size:14px;color:var(--text-secondary);margin:0">
                 Your international office already uploaded a visa guide — its steps
-                were added to your timeline automatically. No need to upload it again.
+                were added to your timeline automatically.
               </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Back to my timeline", use_container_width=True):
-            st.switch_page("pages/04_Ask_a_Question.py")
-        st.stop()
-
-st.markdown(
-    """
-    <div style="max-width:460px;margin:1.5rem auto 0;text-align:center">
-      <h1 style="margin:0 0 6px">Add your school's visa guide</h1>
-      <p style="font-size:14px;color:var(--text-secondary);margin:0">
-        Upload the PDF your international office sent you, Vera will fold any extra
-        steps into your timeline.
-      </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-_, center, _ = st.columns([1, 2, 1])
-with center:
-    uploaded_pdf = st.file_uploader("School visa guide PDF", type=["pdf"], label_visibility="collapsed")
-
-    if uploaded_pdf is not None and st.session_state.get("_last_guide_name") != uploaded_pdf.name:
-        if uploaded_pdf.size > MAX_PDF_UPLOAD_MB * 1024 * 1024:
-            st.session_state["extracted_guide_steps"] = None
-            st.session_state["_last_guide_name"] = uploaded_pdf.name
-            st.error(f"That PDF is too large (max {MAX_PDF_UPLOAD_MB}MB). Try a smaller file.")
-        else:
-            with st.spinner("Reading your school's guide..."):
-                try:
-                    extracted = extract_steps_from_pdf(uploaded_pdf)
-                    st.session_state["extracted_guide_steps"] = extracted
-                    st.session_state["_last_guide_name"] = uploaded_pdf.name
-                except PdfExtractionError as e:
-                    st.session_state["extracted_guide_steps"] = None
-                    st.session_state["_last_guide_name"] = uploaded_pdf.name
-                    st.error(str(e))
-
-    extracted_steps = st.session_state.get("extracted_guide_steps")
-
-    if extracted_steps:
+    elif college and college.get("guide_pdf_url"):
         st.markdown(
             f"""
-            <div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;
-                        padding:12px 14px;margin:18px 0">
-                <div style="display:flex;align-items:center;gap:10px">
-                    <div style="width:32px;height:32px;border-radius:var(--radius);background:var(--bg-accent);
-                                display:flex;align-items:center;justify-content:center">
-                        <i class="ti ti-file-text" style="color:var(--text-accent)"></i>
-                    </div>
-                    <div style="flex:1">
-                        <p style="font-size:14px;margin:0">{uploaded_pdf.name}</p>
-                        <p style="font-size:12px;color:var(--text-muted);margin:0">Read by Vera</p>
-                    </div>
-                    <i class="ti ti-check" style="color:var(--text-success)"></i>
-                </div>
+            <div style="max-width:460px;margin:1.5rem auto 0;text-align:center">
+              <h1 style="margin:0 0 6px">Your school's visa guide</h1>
+              <p style="font-size:14px;color:var(--text-secondary);margin:0">
+                Your international office shared a guide — you can view it any time
+                from your timeline.
+              </p>
             </div>
-            <p style="font-size:13px;color:var(--text-secondary);margin:0 0 10px">
-                Vera found these extra steps in your guide
-            </p>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.link_button(f"📄 View {college.get('name') or 'your school'}'s visa guide", college["guide_pdf_url"], use_container_width=True)
+    else:
+        st.markdown(
+            """
+            <div style="max-width:460px;margin:1.5rem auto 0;text-align:center">
+              <h1 style="margin:0 0 6px">Your school's visa guide</h1>
+              <p style="font-size:14px;color:var(--text-secondary);margin:0">
+                Your international office hasn't added a guide yet. Once they do, any
+                extra steps it covers will show up on your timeline automatically —
+                no need to do anything here.
+              </p>
+            </div>
             """,
             unsafe_allow_html=True,
         )
 
-        selected_steps = []
-        for step in extracted_steps:
-            page_note = f", per page {step['page_hint']}" if step.get("page_hint") else ""
-            checked = st.checkbox(
-                f"{step['title']}",
-                value=True,
-                key=f"guide_step_{step['id']}",
-                help=f"{step['detail']}{page_note}",
-            )
-            st.markdown(
-                f"<p style='font-size:12px;color:var(--text-muted);margin:-8px 0 10px 28px'>"
-                f"{html.escape(step['detail'])}{html.escape(page_note)}</p>",
-                unsafe_allow_html=True,
-            )
-            if checked:
-                selected_steps.append(step)
-
-        if st.button("Add to my timeline", use_container_width=True, type="primary"):
-            add_timeline_steps(selected_steps)
-            st.switch_page("pages/04_Ask_a_Question.py")
-    else:
-        st.button("Add to my timeline", use_container_width=True, type="primary", disabled=True)
-        if st.button("Skip for now", use_container_width=True):
-            st.switch_page("pages/04_Ask_a_Question.py")
+    if st.button("Continue to my timeline", use_container_width=True, type="primary"):
+        st.switch_page("pages/04_Ask_a_Question.py")

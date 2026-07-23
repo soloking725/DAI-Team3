@@ -563,6 +563,8 @@ def post_announcement(college_id: str, author_id: str, body: str, event_at: Opti
     client = get_client()
     if client is None:
         return
+    if len(body) > MAX_MESSAGE_LENGTH:
+        raise ValueError(f"post_announcement: body exceeds {MAX_MESSAGE_LENGTH} characters")
     row = {"college_id": college_id, "author_id": author_id, "body": body}
     if event_at:
         row["event_at"] = event_at
@@ -704,6 +706,13 @@ def delete_custom_reminder(reminder_id: str, college_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Direct messages (DSO <-> student, one thread per pair)
 # ---------------------------------------------------------------------------
+# Both messages.body and announcements.body carry the matching check
+# constraint added in migrations/013_messaging_inbox.sql — this mirrors it
+# client-side so a caller gets a friendly ValueError instead of a raw
+# Postgres constraint-violation error.
+MAX_MESSAGE_LENGTH = 4000
+
+
 def get_dso_users(college_id: str) -> list[dict]:
     """DSOs for a college, so a student can pick who to message."""
     client = get_client()
@@ -746,6 +755,8 @@ def send_message(college_id: str, sender_id: str, recipient_id: str, body: str) 
         raise ValueError("send_message: sender/recipient must belong to college_id")
     if {sender["role"], recipient["role"]} != {"student", "dso"}:
         raise ValueError("send_message: only dso<->student messages are allowed")
+    if len(body) > MAX_MESSAGE_LENGTH:
+        raise ValueError(f"send_message: body exceeds {MAX_MESSAGE_LENGTH} characters")
     client.table("messages").insert(
         {
             "college_id": college_id,
@@ -756,8 +767,13 @@ def send_message(college_id: str, sender_id: str, recipient_id: str, body: str) 
     ).execute()
 
 
-def list_thread(college_id: str, user_a: str, user_b: str, limit: int = 100) -> list[dict]:
-    """Every message between two specific users, oldest first."""
+def list_thread(college_id: str, user_a: str, user_b: str, limit: int = 50) -> list[dict]:
+    """The most recent `limit` messages between two specific users, oldest first.
+
+    Fetched newest-first (so LIMIT keeps the *latest* messages, not the
+    earliest ones a plain oldest-first-with-limit query would return) and
+    reversed back to oldest-first for display.
+    """
     client = get_client()
     if client is None:
         return []
@@ -769,11 +785,98 @@ def list_thread(college_id: str, user_a: str, user_b: str, limit: int = 100) -> 
             f"and(sender_id.eq.{user_a},recipient_id.eq.{user_b}),"
             f"and(sender_id.eq.{user_b},recipient_id.eq.{user_a})"
         )
-        .order("created_at", desc=False)
+        .order("created_at", desc=True)
         .limit(limit)
         .execute()
     )
-    return res.data or []
+    return list(reversed(res.data or []))
+
+
+def mark_thread_read(user_id: str, other_user_id: str, college_id: str) -> None:
+    """Record that user_id has seen everything in this thread as of now —
+    called when a thread is opened. Upserted rather than inserted since
+    there's exactly one row per (user_id, other_user_id) pair."""
+    client = get_client()
+    if client is None:
+        return
+    client.table("thread_reads").upsert(
+        {
+            "user_id": user_id,
+            "other_user_id": other_user_id,
+            "college_id": college_id,
+            "last_read_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        },
+        on_conflict="user_id,other_user_id",
+    ).execute()
+
+
+def _last_read_at(client, user_id: str, other_user_id: str) -> Optional[str]:
+    res = (
+        client.table("thread_reads")
+        .select("last_read_at")
+        .eq("user_id", user_id)
+        .eq("other_user_id", other_user_id)
+        .limit(1)
+        .execute()
+    )
+    return res.data[0]["last_read_at"] if res.data else None
+
+
+def get_unread_count(user_id: str, other_user_id: str) -> int:
+    """How many messages other_user_id has sent user_id since user_id last
+    opened this thread (or the whole thread, if it's never been opened)."""
+    client = get_client()
+    if client is None:
+        return 0
+    last_read = _last_read_at(client, user_id, other_user_id)
+    query = (
+        client.table("messages")
+        .select("id", count="exact")
+        .eq("sender_id", other_user_id)
+        .eq("recipient_id", user_id)
+    )
+    if last_read:
+        query = query.gt("created_at", last_read)
+    return query.execute().count or 0
+
+
+def list_conversations(college_id: str, user_id: str, counterparts: list[dict]) -> list[dict]:
+    """One row per possible counterpart (the DSOs at a student's college, or
+    the students on a DSO's roster), each with its last message + unread
+    count, sorted most-recent-activity first — the inbox list. Counterparts
+    with no messages yet sort last, alphabetically.
+
+    `counterparts` is the caller's already-fetched roster/DSO list (each a
+    dict with at least "id" and "name") — this never queries for the set of
+    possible counterparts itself, since callers already have it (db.list_students
+    / db.get_dso_users) and a college's DSO/student count is small enough that
+    one list_thread-shaped query per counterpart is cheap.
+    """
+    client = get_client()
+    if client is None:
+        return []
+    conversations = []
+    for person in counterparts:
+        other_id = person["id"]
+        thread = list_thread(college_id, user_id, other_id, limit=1)
+        last = thread[-1] if thread else None
+        conversations.append(
+            {
+                "id": other_id,
+                "name": person.get("name") or person.get("email") or "Unknown",
+                "last_message": last["body"] if last else "",
+                "last_message_at": last["created_at"] if last else None,
+                "unread_count": get_unread_count(user_id, other_id),
+            }
+        )
+    conversations.sort(
+        key=lambda c: (c["last_message_at"] is None, c["last_message_at"] and -_to_epoch(c["last_message_at"]), c["name"])
+    )
+    return conversations
+
+
+def _to_epoch(iso_ts: str) -> float:
+    return datetime.datetime.fromisoformat(iso_ts.replace("Z", "+00:00")).timestamp()
 
 
 # ---------------------------------------------------------------------------
@@ -847,4 +950,52 @@ def check_and_increment_chat_rate_limit(
     client.table("chat_rate_limits").update(
         {"request_count": row["request_count"] + 1}
     ).eq("user_id", user_id).execute()
+    return True, 0
+
+
+def check_and_increment_otp_domain_rate_limit(
+    domain: str, max_requests: int, window_seconds: float
+) -> tuple[bool, int]:
+    """Fixed-window rate limit on OTP sends, keyed by the requested email's
+    domain rather than the individual address — see
+    migrations/014_otp_rate_limits.sql for why a per-address limit doesn't
+    help against someone iterating through many different fake usernames at
+    one allowed domain. Same fixed-window shape as
+    check_and_increment_chat_rate_limit above; returns (allowed, wait_seconds).
+    """
+    client = get_client()
+    if client is None:
+        return True, 0  # local mode: no OTP flow exists at all
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    res = (
+        client.table("otp_send_log")
+        .select("window_start,request_count")
+        .eq("domain", domain)
+        .limit(1)
+        .execute()
+    )
+    row = res.data[0] if res.data else None
+
+    if row is None:
+        client.table("otp_send_log").insert(
+            {"domain": domain, "window_start": now.isoformat(), "request_count": 1}
+        ).execute()
+        return True, 0
+
+    window_start = datetime.datetime.fromisoformat(row["window_start"].replace("Z", "+00:00"))
+    elapsed = (now - window_start).total_seconds()
+
+    if elapsed >= window_seconds:
+        client.table("otp_send_log").update(
+            {"window_start": now.isoformat(), "request_count": 1}
+        ).eq("domain", domain).execute()
+        return True, 0
+
+    if row["request_count"] >= max_requests:
+        return False, int(window_seconds - elapsed)
+
+    client.table("otp_send_log").update(
+        {"request_count": row["request_count"] + 1}
+    ).eq("domain", domain).execute()
     return True, 0

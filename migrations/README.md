@@ -29,9 +29,14 @@ stable function signatures.
    visa/passport expiration dates onto the students row for the DSO roster),
    `migrations/011_reminder_targeting.sql` (lets a DSO scope a custom reminder
    to a visa type and/or timeline step instead of always broadcasting to
-   everyone), and `migrations/012_rls_completeness.sql` (adds the same-college
+   everyone), `migrations/012_rls_completeness.sql` (adds the same-college
    RLS policy that `colleges` and `users` were missing — every other
-   tenant-scoped table already had one) — same process, run once each.
+   tenant-scoped table already had one), `migrations/013_messaging_inbox.sql`
+   (per-thread read tracking for unread badges, plus a length cap on message/
+   announcement bodies), and `migrations/014_otp_rate_limits.sql` (a
+   per-domain rate limit on login-code sends, so a script can't cheaply spam
+   codes to many fake usernames at an allowed domain) — same process, run
+   once each.
 
 3. **Seed your colleges.** A user's email domain decides which college they join,
    so you can run more than one — e.g. a throwaway test college alongside the

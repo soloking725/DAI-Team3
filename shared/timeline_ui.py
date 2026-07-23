@@ -142,7 +142,10 @@ def render_step_details(step: dict, visa_type: str = "f-1"):
 
     if step.get("form_url"):
         form_name = step.get("form_name") or "the official form"
-        parts.append(f'<p><a href="{step["form_url"]}" target="_blank">Go to {form_name} ↗</a></p>')
+        parts.append(
+            f'<p><a href="{html.escape(step["form_url"])}" target="_blank" '
+            f'rel="noopener noreferrer">Go to {html.escape(form_name)} ↗</a></p>'
+        )
 
     if parts:
         st.markdown(f'<div class="vera-step-details-card">{"".join(parts)}</div>', unsafe_allow_html=True)

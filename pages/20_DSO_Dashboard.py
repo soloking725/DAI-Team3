@@ -21,6 +21,7 @@ from shared import config, auth, db
 from shared.timeline_data import TIMELINE_TEMPLATES
 from shared.pdf_guide import extract_steps_from_pdf, PdfExtractionError
 from shared.config import MAX_PDF_UPLOAD_MB
+from shared.messaging_ui import render_inbox
 
 st.set_page_config(page_icon=FAVICON, page_title="DSO Dashboard - Vera", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -141,7 +142,6 @@ if not roster:
     st.info("No students have signed in yet.")
     st.stop()
 
-
 # --- Behind-pace heuristic --------------------------------------------------
 # There's no per-step timestamp history — only each student's *current* step
 # and the year they entered their program — so "pace" here is necessarily an
@@ -178,7 +178,15 @@ for r in roster:
 
 behind_pace_total = sum(1 for r in roster if r["behind_pace"])
 
-roster_tab, stats_tab = st.tabs(["Roster", "Statistics"])
+# Hoisted above the tabs since more than one tab needs them: name_by_id by
+# the Admin tab's student pickers, step_options by both the Roster filter
+# row and the Announcements & Reminders tab's reminder-audience picker.
+name_by_id = {r["user_id"]: f"{r['name'] or r['email']}" for r in roster}
+step_options = ["All"] + sorted({r["current_step_key"] for r in roster if r["current_step_key"]})
+
+roster_tab, stats_tab, messages_tab, announce_tab, admin_tab = st.tabs(
+    ["Roster", "Statistics", "Messages", "Announcements & Reminders", "Admin"]
+)
 
 with stats_tab:
     visa_counts = {}
@@ -205,7 +213,6 @@ with roster_tab:
     search = st.text_input("Search by name or email", placeholder="e.g. jane@colby.edu")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        step_options = ["All"] + sorted({r["current_step_key"] for r in roster if r["current_step_key"]})
         step_filter = st.selectbox("Current step", step_options)
     with c2:
         status_options = ["All"] + sorted({r["current_step_status"] for r in roster if r["current_step_status"]})
@@ -279,10 +286,24 @@ with roster_tab:
         mime="text/csv",
     )
 
+with messages_tab:
+    # An inbox, not a "pick a student and hope" selectbox — sorted by most
+    # recent activity, with unread counts.
+    st.caption(
+        "For logistics support, not legal advice — for legal questions, direct the "
+        "student to a licensed immigration attorney."
+    )
+    render_inbox(
+        college_id=college_id,
+        current_user_id=user["id"],
+        counterparts=[{"id": r["user_id"], "name": r["name"] or r["email"]} for r in roster],
+        state_key="dso_inbox",
+    )
+
+with admin_tab:
     # --- Per-student step override ------------------------------------------
     st.markdown("### Update a student's step")
     _show_flash("override")
-    name_by_id = {r["user_id"]: f"{r['name'] or r['email']}" for r in roster}
     sel_student = st.selectbox(
         "Student", list(name_by_id), format_func=lambda uid: name_by_id[uid]
     )
@@ -355,25 +376,34 @@ with roster_tab:
             _set_flash("grad_one", "error", "Couldn't complete this — the student may already be gone.")
         st.rerun()
 
-    # --- Direct message to a student ------------------------------------------
-    st.markdown("### Message a student")
+    # --- Remove a fraudulent/invalid account ----------------------------------
+    st.markdown("### Remove a fraudulent or invalid account")
     st.caption(
-        "For logistics support, not legal advice — for legal questions, direct the "
-        "student to a licensed immigration attorney."
+        "For an account that shouldn't exist at all — not a real student, or a "
+        "duplicate/impersonation — not for someone who's actually leaving your "
+        "school (use graduation above for that, so their anonymized progress "
+        "still counts toward your cohort stats). This skips that stats archive "
+        "entirely and just deletes the account. This can't be undone."
     )
-    msg_student = st.selectbox(
-        "Student", list(name_by_id), format_func=lambda uid: name_by_id[uid], key="_msg_student"
+    _show_flash("remove_fraud")
+    remove_student = st.selectbox(
+        "Student", list(name_by_id), format_func=lambda uid: name_by_id[uid], key="_remove_fraud_student"
     )
-    for m in db.list_thread(college_id, user["id"], msg_student):
-        who = "You" if m["sender_id"] == user["id"] else name_by_id.get(msg_student, "Student")
-        st.markdown(f"**{who}** · {m['created_at'][:16].replace('T', ' ')}  \n{m['body']}")
-    _show_flash("message")
-    msg_body = st.text_area("Message", key="_msg_body", placeholder="e.g. Please stop by the office to sign your I-20.")
-    if st.button("Send message") and msg_body.strip():
-        db.send_message(college_id, user["id"], msg_student, msg_body.strip())
-        _set_flash("message", "success", "Message sent.")
+    confirm_remove = st.checkbox(
+        "I understand this permanently deletes this account and everything tied to it, "
+        "with no stats archived.",
+        key="_remove_fraud_confirm",
+    )
+    if st.button("Remove account", disabled=not confirm_remove):
+        removed_name = name_by_id[remove_student]
+        if db.delete_student_account(remove_student, college_id):
+            db.write_audit(user["id"], "remove_fraudulent_account", remove_student)
+            _set_flash("remove_fraud", "success", f"Removed {removed_name}'s account.")
+        else:
+            _set_flash("remove_fraud", "error", "Couldn't complete this — the account may already be gone.")
         st.rerun()
 
+with announce_tab:
     # --- Announcements & events -----------------------------------------------
     st.markdown("### Post an announcement or event")
     st.caption(
@@ -382,7 +412,10 @@ with roster_tab:
         "separately, soonest first."
     )
     _show_flash("announcement")
-    body = st.text_area("Message", placeholder="e.g. Reminder: SEVIS fee is due before your interview.")
+    body = st.text_area(
+        "Message", placeholder="e.g. Reminder: SEVIS fee is due before your interview.",
+        max_chars=db.MAX_MESSAGE_LENGTH,
+    )
     is_event = st.checkbox("This is an event (has a date/time)")
     event_at_iso = None
     if is_event:

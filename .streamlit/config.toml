@@ -8,5 +8,8 @@ font = "sans serif"
 [server]
 runOnSave = false
 
+[client]
+showErrorDetails = false
+
 [browser]
 gatherUsageStats = false

@@ -51,6 +51,7 @@ with center:
         notes = st.text_area(
             "Anything else you'd like to add (optional)",
             placeholder="A few details help Vera point you to the right guidance.",
+            max_chars=2000,
         )
 
         col_skip, col_continue = st.columns(2)

@@ -18,6 +18,7 @@ existing call sites keep working.
 
 import json
 import logging
+import re
 import time
 import uuid
 from pathlib import Path
@@ -45,6 +46,28 @@ def _hosted() -> bool:
     return config.is_supabase_configured()
 
 
+# Every key this module ever mints is uuid.uuid4().hex — exactly 32 lowercase
+# hex characters. Anything else arriving via the *client-controlled* ?vid= URL
+# param is rejected outright rather than ever reaching a filesystem path.
+#
+# Without this, load_session/save_session/delete_session build a path as
+# `SESSIONS_DIR / f"{key}.json"` straight from that param. A key like
+# "../../../../etc/cron.d/x" walks the file operations outside SESSIONS_DIR,
+# and — worse — pathlib's `/` operator discards the left operand entirely
+# when the right side looks absolute (`Path("/a/b") / "/etc/passwd"` ==
+# `Path("/etc/passwd")`), so a value like "/tmp/evil" (URL-encoded as
+# "%2Ftmp%2Fevil") would let a client choose an arbitrary absolute path —
+# for save_session, an arbitrary-file-write primitive (the JSON blob is
+# whatever's in the client's own Vera state), constrained only to paths the
+# server process can write to. This closes that off at the one place a raw
+# ?vid= value gets turned into a key.
+_VALID_KEY_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def _is_valid_key(key: str) -> bool:
+    return bool(key) and bool(_VALID_KEY_RE.match(key))
+
+
 # ---------------------------------------------------------------------------
 # Session identity
 # ---------------------------------------------------------------------------
@@ -63,7 +86,10 @@ def get_storage_key() -> str:
         user = auth.get_current_user()
         return user["id"] if user else ""
     vid = st.query_params.get("vid")
-    if vid:
+    # A malformed/tampered ?vid= (see _is_valid_key's docstring above) is
+    # treated exactly like a missing one — mint a fresh, valid one instead
+    # of ever handing an attacker-chosen string to a filesystem path.
+    if vid and _is_valid_key(vid):
         return vid
     vid = uuid.uuid4().hex
     st.query_params["vid"] = vid
@@ -85,6 +111,9 @@ def load_session(key: str) -> dict:
             return {}
         from shared import db
         return db.load_state(key)
+    if not _is_valid_key(key):
+        logger.warning("load_session: rejected malformed key")
+        return {}
     path = SESSIONS_DIR / f"{key}.json"
     if not path.exists():
         return {}
@@ -115,6 +144,9 @@ def save_session(key: str, data: dict) -> None:
         college_id = user.get("college_id") if user else None
         db.save_state(key, data, college_id=college_id)
         return
+    if not _is_valid_key(key):
+        logger.warning("save_session: rejected malformed key")
+        return
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     path = SESSIONS_DIR / f"{key}.json"
     path.write_text(json.dumps(data, indent=2))
@@ -127,6 +159,9 @@ def delete_session(key: str) -> None:
             return
         from shared import db
         db.delete_state(key)
+        return
+    if not _is_valid_key(key):
+        logger.warning("delete_session: rejected malformed key")
         return
     path = SESSIONS_DIR / f"{key}.json"
     path.unlink(missing_ok=True)

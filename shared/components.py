@@ -181,71 +181,37 @@ _VISA_TYPE_PAGES = {
 
 HAMBURGER_CSS = """
 <style>
-    /* The header is a real bar pinned to the top of the viewport, not a couple of
-       controls floating in the middle of the centered 1200px column. The ::before
-       pseudo-element paints a full-bleed background/border across the whole window
-       width while the controls themselves stay aligned with the page content. */
-    div.st-key-vera_header {
-        position: sticky;
-        top: 0;
-        z-index: 998;
-        padding: 10px 0 8px;
-        margin-bottom: 4px;
+    /* A small fixed icon in the corner — same technique as the floating chat
+       bubble below (div.st-key-vera_floating_chat), just the opposite corner
+       and the smaller 32px size the old inline header button used. Being
+       fixed rather than sticky-in-a-header-bar means it never occupies its
+       own row of page height; the page content starts right at the top. */
+    div.st-key-vera_hamburger_corner {
+        position: fixed;
+        top: 1.5rem;
+        left: 1.5rem;
+        z-index: 9999;
     }
-    div.st-key-vera_header::before {
-        content: "";
-        position: absolute;
-        top: 0; bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 100vw;
-        background: #ffffff;
-        border-bottom: 0.5px solid var(--border);
-        z-index: -1;
+    div.st-key-vera_hamburger_corner button {
+        width: 40px !important; height: 40px !important; padding: 0 !important;
+        border-radius: 50% !important; border: 0.5px solid var(--border) !important;
+        background: #ffffff !important;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12) !important;
     }
-    /* Nav bars shouldn't stack, unlike the main chat+timeline columns which
-       intentionally go vertical on phones — the hamburger icon and small
-       logo easily fit one row at any width, so force nowrap unconditionally
-       rather than only above the tablet breakpoint. */
-    div.st-key-vera_header div[data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-    }
-    div.st-key-vera_header div[data-testid="stColumn"] {
-        width: auto !important;
-        min-width: 0 !important;
-    }
-    div.st-key-vera_header div[data-testid="stPopover"] button {
-        width:32px !important; height:32px !important; padding:0 !important;
-        border-radius:var(--radius) !important; border:0.5px solid var(--border) !important;
+    /* The brand wordmark is no longer part of a persistent header — it's
+       normal in-flow page content now (scrolls away like anything else),
+       just given a little breathing room since the fixed hamburger sits
+       on top of the page's natural top-left corner. */
+    div.st-key-vera_brand_row {
+        padding: 4px 0 12px 60px;
     }
     .st-key-vera_brand_link p {
-        font-size: 22px !important;
+        font-size: 20px !important;
         font-weight: 700 !important;
         color: var(--text-accent) !important;
     }
-    /* Three-zone app-bar layout: hamburger | centered logo | matching empty
-       spacer. The spacer column mirrors the hamburger column's width so the
-       middle column's centered content lands on the true midpoint of the
-       bar, not just the midpoint of the leftover space — this holds at any
-       viewport width since Streamlit's columns are already percentage
-       based, no hardcoded pixel math needed. text-align (not flex
-       justify-content) does the centering: Streamlit's own wrapper divs
-       inside the column stretch to 100% width, so a flex justify-content
-       on the column has nothing narrower than itself to center — but the
-       logo is display:inline-block, so text-align on any block ancestor
-       still centers it correctly. */
-    div.st-key-vera_header [data-testid="stColumn"]:has(.vera-brand-logo),
-    div.st-key-vera_header [data-testid="stColumn"]:has(.st-key-vera_brand_link) {
-        text-align: center;
-    }
-    /* Streamlit wraps inline markdown content (our logo <a>) in a <p> that
-       carries its own text-align: left, which wins over the inherited
-       center above — override it explicitly. */
-    div.st-key-vera_header [data-testid="stColumn"]:has(.vera-brand-logo) p {
-        text-align: center;
-    }
     .vera-brand-logo img {
-        height: 42px;
+        height: 36px;
         display: block;
     }
     .vera-brand-logo {
@@ -256,77 +222,110 @@ HAMBURGER_CSS = """
 """
 
 
-def render_hamburger_menu(visa_type: str = "f-1"):
-    """Render the top-left hamburger menu: Your Timeline, Home, Forms, Info, Help, Settings, Privacy.
+@st.fragment(run_every="30s")
+def _render_unread_badge(user: dict):
+    """A small "N new messages" line under the Timeline/DSO Dashboard link —
+    the "alert like Insta" ask: visible without first opening any thread.
+    Self-refreshing on a 30s timer (same st.fragment(run_every=...) technique
+    as shared/auth.py's OTP cooldown) since Streamlit has no push/websocket
+    hook available to app code to react to a new message immediately.
+    """
+    from shared import db
 
-    "Vera" itself is a clickable brand link back to the timeline, so there's
-    always a way back to the chat+timeline screen from anywhere on the site.
+    if not user:
+        return
+    if user.get("role") == "dso":
+        counterparts = [
+            {"id": r["user_id"], "name": r.get("name") or r.get("email")}
+            for r in db.list_students(user["college_id"])
+        ]
+    else:
+        counterparts = db.get_dso_users(user["college_id"])
+    if not counterparts:
+        return
+    total_unread = sum(db.get_unread_count(user["id"], c["id"]) for c in counterparts)
+    if total_unread:
+        st.caption(f"🔴 {total_unread} new message{'s' if total_unread != 1 else ''}")
+
+
+def render_hamburger_menu(visa_type: str = "f-1"):
+    """Render the corner hamburger menu: Your Timeline, Messages, Guide, Home,
+    Forms, Info, Help, Settings, Privacy — plus the Vera brand wordmark as
+    normal (non-fixed) page content right below it.
+
+    The menu button itself is fixed to the top-left corner (mirrors
+    render_floating_chat's bottom-right bubble) rather than living in a
+    sticky header bar, so it never occupies a permanent row of page height.
     """
     from shared.branding import get_logo_data_uri
+    from shared import auth, config
 
     st.markdown(HAMBURGER_CSS, unsafe_allow_html=True)
 
-    with st.container(key="vera_header"):
-        col1, col2, col3 = st.columns([1, 10, 1], vertical_alignment="center")
-        with col1:
-            with st.popover("☰"):
-                from shared import auth, config
-
-                st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")
-                st.page_link("app.py", label="Home", icon=":material/home:")
-                # Same top tier as Timeline/Home (above the divider), but only
-                # for a signed-in DSO — students should never see this link,
-                # and it's the only way back to the dashboard from any other
-                # page once a DSO has navigated away from it.
-                _user = auth.get_current_user() if config.is_supabase_configured() else None
-                if _user and _user.get("role") == "dso":
-                    st.page_link(
-                        "pages/20_DSO_Dashboard.py", label="DSO Dashboard",
-                        icon=":material/admin_panel_settings:",
-                    )
-                st.divider()
+    with st.container(key="vera_hamburger_corner"):
+        with st.popover("☰"):
+            st.page_link("pages/04_Ask_a_Question.py", label="Your Timeline", icon=":material/timeline:")
+            st.page_link("app.py", label="Home", icon=":material/home:")
+            # Same top tier as Timeline/Home (above the divider), but only
+            # for a signed-in DSO — students should never see this link,
+            # and it's the only way back to the dashboard from any other
+            # page once a DSO has navigated away from it.
+            _user = auth.get_current_user() if config.is_supabase_configured() else None
+            if _user and _user.get("role") == "dso":
                 st.page_link(
-                    _VISA_TYPE_PAGES.get(visa_type, _VISA_TYPE_PAGES["f-1"]),
-                    label="Forms",
-                    icon=":material/description:",
+                    "pages/20_DSO_Dashboard.py", label="DSO Dashboard",
+                    icon=":material/admin_panel_settings:",
                 )
-                st.page_link("pages/06_About.py", label="Info", icon=":material/info:")
-                st.page_link(
-                    "pages/17_Interview_Prep.py",
-                    label="Interview prep",
-                    icon=":material/record_voice_over:",
-                )
-                st.page_link(
-                    "pages/18_Document_Checklist.py",
-                    label="Document checklist",
-                    icon=":material/checklist:",
-                )
-                st.page_link(
-                    "pages/13_Help_Find_a_Lawyer.py",
-                    label="Help (find a lawyer)",
-                    icon=":material/balance:",
-                )
-                st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
-                st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
-
-                if config.is_supabase_configured() and auth.is_logged_in():
-                    st.divider()
-                    if st.button("Sign out", icon=":material/logout:", use_container_width=True):
-                        auth.logout()
-                        st.switch_page("app.py")
-        with col2:
-            logo = get_logo_data_uri()
-            if logo:
-                # Plain <a> rather than st.page_link so the mark itself is the link;
-                # Streamlit's page_link only accepts a text label.
-                st.markdown(
-                    f'<a class="vera-brand-logo" href="/Ask_a_Question" target="_self">'
-                    f'<img src="{logo}" alt="VeraVisa"></a>',
-                    unsafe_allow_html=True,
-                )
+                _render_unread_badge(_user)  # dashboard's own Messages tab
             else:
-                with st.container(key="vera_brand_link"):
-                    st.page_link("pages/04_Ask_a_Question.py", label="Vera")
+                st.page_link("pages/19_Messages.py", label="Messages", icon=":material/mail:")
+                if config.is_supabase_configured() and _user:
+                    _render_unread_badge(_user)
+            st.page_link("pages/12_School_Guide_Upload.py", label="Guide", icon=":material/menu_book:")
+            st.divider()
+            st.page_link(
+                _VISA_TYPE_PAGES.get(visa_type, _VISA_TYPE_PAGES["f-1"]),
+                label="Forms",
+                icon=":material/description:",
+            )
+            st.page_link("pages/06_About.py", label="Info", icon=":material/info:")
+            st.page_link(
+                "pages/17_Interview_Prep.py",
+                label="Interview prep",
+                icon=":material/record_voice_over:",
+            )
+            st.page_link(
+                "pages/18_Document_Checklist.py",
+                label="Document checklist",
+                icon=":material/checklist:",
+            )
+            st.page_link(
+                "pages/13_Help_Find_a_Lawyer.py",
+                label="Help (find a lawyer)",
+                icon=":material/balance:",
+            )
+            st.page_link("pages/15_Settings.py", label="Settings", icon=":material/settings:")
+            st.page_link("pages/14_Privacy.py", label="Privacy", icon=":material/shield_lock:")
+
+            if config.is_supabase_configured() and auth.is_logged_in():
+                st.divider()
+                if st.button("Sign out", icon=":material/logout:", use_container_width=True):
+                    auth.logout()
+                    st.switch_page("app.py")
+
+    with st.container(key="vera_brand_row"):
+        logo = get_logo_data_uri()
+        if logo:
+            # Plain <a> rather than st.page_link so the mark itself is the link;
+            # Streamlit's page_link only accepts a text label.
+            st.markdown(
+                f'<a class="vera-brand-logo" href="/Ask_a_Question" target="_self">'
+                f'<img src="{logo}" alt="VeraVisa"></a>',
+                unsafe_allow_html=True,
+            )
+        else:
+            with st.container(key="vera_brand_link"):
+                st.page_link("pages/04_Ask_a_Question.py", label="Vera")
 
 
 FLOATING_CHAT_CSS = """

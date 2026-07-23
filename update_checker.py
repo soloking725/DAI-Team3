@@ -35,7 +35,7 @@ def hash_page_content(url):
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         # Hash the text content
-        content_hash = hashlib.md5(response.text.encode("utf-8")).hexdigest()
+        content_hash = hashlib.md5(response.text.encode("utf-8"), usedforsecurity=False).hexdigest()
         return content_hash
     except Exception as e:
         print(f"  [ERROR] Failed to fetch {url}: {e}")

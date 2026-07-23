@@ -117,26 +117,14 @@ if user and user.get("mode") == "hosted" and user.get("college_id"):
         step_key=_current_step_key,
     )
     if college and college.get("guide_pdf_url"):
-        st.markdown(
-            f"📄 [{college.get('name') or 'Your school'}'s visa guide]({college['guide_pdf_url']})"
+        st.link_button(
+            f"📄 View {college.get('name') or 'your school'}'s visa guide",
+            college["guide_pdf_url"],
         )
 
 render_reminders_banner(
     compute_reminders(state.get("post_visa", {})) + compute_custom_reminders(custom_reminders)
 )
-
-if user and user.get("mode") == "hosted" and user.get("college_id"):
-    events = db.list_upcoming_events(user["college_id"], limit=5)
-    announcements = db.list_announcements(user["college_id"], limit=5)
-    if events or announcements:
-        with st.expander(f"Announcements from {college.get('name') or 'your school'}" if college else "Announcements", expanded=bool(events)):
-            for e in events:
-                when = e["event_at"][:16].replace("T", " ")
-                st.markdown(f"📅 **{when}** — {e['body']}")
-            for a in announcements:
-                if a.get("event_at"):
-                    continue  # already shown above as an event
-                st.markdown(f"- **{a['created_at'][:10]}** — {a['body']}")
 
 circumstances = state.get("extenuating_circumstances", {}).get("categories", [])
 if circumstances:
@@ -180,26 +168,5 @@ with st.container(key="vera_main_row"):
 
     with right:
         render_timeline(state["timeline"], visa_type=visa_type)
-
-if user and user.get("mode") == "hosted" and user.get("college_id"):
-    dsos = db.get_dso_users(user["college_id"])
-    if dsos:
-        st.markdown("### Message DSO")
-        st.caption(
-            "For logistics support, not legal advice — for legal questions, "
-            "consult a licensed immigration attorney."
-        )
-        dso_by_id = {d["id"]: d.get("name") or d.get("email") for d in dsos}
-        dso_id = (
-            dsos[0]["id"] if len(dsos) == 1
-            else st.selectbox("DSO", list(dso_by_id), format_func=lambda uid: dso_by_id[uid])
-        )
-        for m in db.list_thread(user["college_id"], user["id"], dso_id):
-            who = "You" if m["sender_id"] == user["id"] else dso_by_id.get(dso_id, "DSO")
-            st.markdown(f"**{who}** · {m['created_at'][:16].replace('T', ' ')}  \n{m['body']}")
-        reply = st.text_area("Your message", key="_student_msg_body")
-        if st.button("Send") and reply.strip():
-            db.send_message(user["college_id"], user["id"], dso_id, reply.strip())
-            st.rerun()
 
 st.markdown(render_footer(), unsafe_allow_html=True)

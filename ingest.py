@@ -359,7 +359,7 @@ def chunk_text(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
 
 def content_hash(text):
     """Hash content to detect changes."""
-    return hashlib.md5(text.encode()).hexdigest()
+    return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()
 
 
 def load_cache():
@@ -388,8 +388,8 @@ def store_in_chroma(chunks, metadata_template, overwrite=True):
             existing = collection.get(where={"source_url": metadata_template["url"]})
             if existing["ids"]:
                 collection.delete(ids=existing["ids"])
-        except Exception:
-            pass  # No existing data
+        except Exception as e:
+            print(f"  [WARN] Could not clear existing chunks for {metadata_template['url']}: {e}")
 
     for i, chunk in enumerate(chunks):
         doc_id = f"{metadata_template['url']}_{i}"
