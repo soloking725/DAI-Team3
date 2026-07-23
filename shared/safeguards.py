@@ -67,23 +67,47 @@ LEGAL_ADVICE_PATTERNS = [
 ]
 
 
+# A subset of LEGAL_ADVICE_PATTERNS strong enough that a SINGLE match is
+# unambiguous intent to get an eligibility/approval/strategy ruling — these
+# trip the classifier on their own, without needing the 2+ match threshold
+# the softer phrases require. Every entry here must also appear in
+# LEGAL_ADVICE_PATTERNS above (this list only marks which ones are "strong").
+STRONG_LEGAL_ADVICE_PATTERNS = [
+    "am i eligible",
+    "am i qualified",
+    "will i be approved",
+    "will i be deported",
+    "what are my chances",
+    "how can i increase my chances",
+    "should i file",
+    "which visa should i",
+    "can i get away with",
+    "can i stay in the us",
+    "is my visa valid",
+]
+
+
 def classify_input(user_query):
     """
     Classify a user query to detect if it asks for legal advice.
+
+    A single STRONG pattern (eligibility/approval/deportation/strategy) is
+    enough on its own; softer phrases still need 2+ matches to avoid false
+    positives on plainly factual questions.
 
     Returns:
         tuple: (is_legal_advice: bool, flagged_patterns: list[str])
     """
     query_lower = user_query.lower()
-    flagged = []
+    flagged = [p for p in LEGAL_ADVICE_PATTERNS if p in query_lower]
+    strong = [p for p in STRONG_LEGAL_ADVICE_PATTERNS if p in query_lower]
 
-    for pattern in LEGAL_ADVICE_PATTERNS:
-        if pattern in query_lower:
-            flagged.append(pattern)
+    is_legal = len(strong) >= 1 or len(flagged) >= 2
 
-    is_legal = len(flagged) >= 2  # Require 2+ matches to avoid false positives
-
-    return is_legal, flagged
+    # Dedupe while preserving order; strong matches surface first so a caller
+    # logging the flags leads with the decisive one.
+    ordered = list(dict.fromkeys(strong + flagged))
+    return is_legal, ordered
 
 
 # -------------------------------------------------------
@@ -134,6 +158,87 @@ def filter_output(response_text, existing_warnings=None):
                 already_shown.add(warning)
 
     return filtered, list(dict.fromkeys(warnings))
+
+
+# -------------------------------------------------------
+# Layer 3b: Hard output redaction (replace, don't annotate)
+# -------------------------------------------------------
+
+# Phrasing that is unambiguously *individualized* legal advice or strategy —
+# an eligibility ruling, a prediction of approval odds, or a "here's how to
+# get around X" plan. Unlike ADVICE_OUTPUT_PATTERNS above (which only append a
+# cautionary note), a match here means the whole draft answer is withheld and
+# replaced with the attorney-referral fallback: a footnote under a sentence
+# that says "you are eligible" doesn't make that sentence compliant.
+#
+# These deliberately do NOT match benign factual procedure the system prompt
+# explicitly allows (e.g. "Contact your school's office to request a
+# replacement I-20") — every pattern targets an eligibility/odds/strategy
+# claim, all of which the system prompt already forbids the model from making.
+REDACT_OUTPUT_PATTERNS = [
+    r"\byou are eligible\b",
+    r"\byou are not eligible\b",
+    r"\byou'?re eligible\b",
+    r"\byou qualify for\b",
+    r"\byou do(?:\s+not|n'?t) qualify\b",
+    r"\byour chances (?:are|of)\b",
+    r"\byou (?:would|will) (?:likely |probably )?be (?:approved|denied)\b",
+    r"\bi recommend that you\b",
+    r"\byour best (?:option|bet|strategy)\b",
+    r"\bto overcome your\b",
+    r"\byou should (?:file|apply|claim|appeal|request a waiver|submit)\b",
+]
+
+
+def screen_output(response_text):
+    """Phase-1 hard redaction gate — deterministic, regex only, no extra LLM call.
+
+    Returns a (verdict, text) tuple:
+      - ("ok", response_text)          nothing individualized-advice-shaped found
+      - ("redact", LEGAL_ADVICE_REFUSAL) the draft gives an eligibility/odds/
+                                        strategy ruling and must be withheld
+
+    Runs AFTER filter_output on the drafted answer, so even a model that
+    ignores the system prompt (or is jailbroken) can't surface individualized
+    legal advice with only a footnote attached.
+    """
+    for pattern in REDACT_OUTPUT_PATTERNS:
+        if re.search(pattern, response_text, flags=re.IGNORECASE):
+            logger.warning(
+                "Redacted a draft answer: matched legal-advice pattern %r", pattern
+            )
+            return "redact", LEGAL_ADVICE_REFUSAL
+    return "ok", response_text
+
+
+# -------------------------------------------------------
+# Redirect & Inform framing + contextual disclaimers
+# -------------------------------------------------------
+
+# Prepended to a factual answer served in response to an *interpretive*
+# question ("am I eligible…?"), so the answer reads as general information,
+# never as a ruling on the individual's case.
+REDIRECT_PREAMBLE = (
+    "I can't evaluate your specific eligibility or case — that requires a "
+    "licensed immigration attorney. Here's the relevant factual information "
+    "from official sources:"
+)
+
+_FACTUAL_DISCLAIMER = (
+    "_Procedures change — verify on the official .gov source before you file._"
+)
+_INTERPRETIVE_DISCLAIMER = (
+    "_This is general public information, not legal advice. Immigration rules "
+    "are fact-specific; consult a licensed U.S. immigration attorney about your "
+    "situation._"
+)
+
+
+def dynamic_disclaimer(is_interpretive: bool) -> str:
+    """The disclaimer to append based on how legally proximate the query was —
+    a light 'verify on .gov' note for plain factual questions, the stronger
+    'not legal advice' note for interpretive ones."""
+    return _INTERPRETIVE_DISCLAIMER if is_interpretive else _FACTUAL_DISCLAIMER
 
 
 # -------------------------------------------------------

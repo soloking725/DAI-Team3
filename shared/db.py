@@ -27,6 +27,7 @@ from __future__ import annotations
 import datetime
 import logging
 import secrets
+import uuid
 from typing import Any, Optional
 
 import streamlit as st
@@ -47,6 +48,22 @@ except ImportError:  # supabase-py not installed → local mode only
 def is_available() -> bool:
     """True when we can actually talk to Postgres (package present + configured)."""
     return _SUPABASE_IMPORTABLE and config.is_supabase_configured()
+
+
+def _validate_uuid(value: str, field: str) -> str:
+    """Return `value` unchanged if it's a well-formed UUID, else raise ValueError.
+
+    These IDs are always server-side Supabase auth UUIDs, never user input — but
+    a few call sites below interpolate them into PostgREST `.or_()` filter
+    *strings* (which .eq()/.in_() parameterization doesn't cover). Validating the
+    shape here means a future caller that ever passes something attacker-derived
+    can't break out of the filter grammar (commas, parentheses, operators). Cheap
+    insurance on a latent injection pattern, not a response to a live bug.
+    """
+    try:
+        return str(uuid.UUID(str(value)))
+    except (ValueError, AttributeError, TypeError):
+        raise ValueError(f"{field} is not a valid UUID: {value!r}")
 
 
 @st.cache_resource
@@ -346,6 +363,7 @@ def delete_student_account(user_id: str, college_id: str) -> bool:
     client = get_client()
     if client is None:
         return False
+    user_id = _validate_uuid(user_id, "user_id")  # interpolated into .or_() below
     row = (
         client.table("users").select("id,college_id,role")
         .eq("id", user_id).limit(1).execute()
@@ -777,6 +795,8 @@ def list_thread(college_id: str, user_a: str, user_b: str, limit: int = 50) -> l
     client = get_client()
     if client is None:
         return []
+    user_a = _validate_uuid(user_a, "user_a")  # interpolated into .or_() below
+    user_b = _validate_uuid(user_b, "user_b")
     res = (
         client.table("messages")
         .select("sender_id,recipient_id,body,created_at")
@@ -968,13 +988,29 @@ def check_and_increment_otp_domain_rate_limit(
         return True, 0  # local mode: no OTP flow exists at all
 
     now = datetime.datetime.now(datetime.timezone.utc)
-    res = (
-        client.table("otp_send_log")
-        .select("window_start,request_count")
-        .eq("domain", domain)
-        .limit(1)
-        .execute()
-    )
+    try:
+        res = (
+            client.table("otp_send_log")
+            .select("window_start,request_count")
+            .eq("domain", domain)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        # otp_send_log (migrations/014) may not be applied yet on a given
+        # deployment. This is the *domain-wide* abuse backstop, not the only
+        # OTP defense — shared/auth.py still enforces its own per-session send
+        # cooldown and per-code verify-attempt cap. Failing open here (allow
+        # the send) means a missing migration degrades this one layer instead
+        # of taking down login entirely for every user, which is strictly
+        # worse than the abuse case this table guards against.
+        if "otp_send_log" not in str(e):
+            raise
+        logger.warning(
+            "otp_send_log table not found — run migrations/014_otp_rate_limits.sql. "
+            "Allowing this OTP send without the domain-wide rate limit for now."
+        )
+        return True, 0
     row = res.data[0] if res.data else None
 
     if row is None:

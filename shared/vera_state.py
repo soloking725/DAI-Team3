@@ -6,6 +6,8 @@ current run; shared/persistence.py mirrors it to disk so it survives a
 page refresh.
 """
 
+import re
+
 import streamlit as st
 
 from shared.persistence import get_or_create_session_id, load_session, save_session
@@ -153,6 +155,19 @@ def mark_step_status(step_id: str, status: str):
     persist_vera_state()
 
 
+def _clean_context_value(value: str) -> str:
+    """Defense-in-depth for values interpolated into the system prompt.
+
+    origin/destination/visa_type all come from fixed st.selectbox option lists
+    today, so this can't currently carry an injection payload — but this block
+    is concatenated into the system prompt sent to the LLM on every call, so
+    collapse whitespace/newlines and cap length. That way, if an option list is
+    ever widened to free text, a value still can't split lines or smuggle in
+    'ignore previous instructions'-style directives.
+    """
+    return re.sub(r"\s+", " ", str(value)).strip()[:100]
+
+
 def build_user_context_block(state: dict = None) -> str:
     """A short, factual line about who's asking, prepended to the system prompt
     so chat/enrichment responses are personalized without changing the rules
@@ -175,11 +190,11 @@ def build_user_context_block(state: dict = None) -> str:
 
     parts = []
     if profile.get("visa_type"):
-        parts.append(f"They are pursuing a {profile['visa_type'].upper()} visa.")
+        parts.append(f"They are pursuing a {_clean_context_value(profile['visa_type']).upper()} visa.")
     if trip.get("origin"):
-        parts.append(f"They are traveling from {trip['origin']}.")
+        parts.append(f"They are traveling from {_clean_context_value(trip['origin'])}.")
     if trip.get("destination"):
-        parts.append(f"They are traveling to {trip['destination']}.")
+        parts.append(f"They are traveling to {_clean_context_value(trip['destination'])}.")
     if circumstances.get("categories"):
         from shared.circumstances import CIRCUMSTANCE_LABELS
         labels = [CIRCUMSTANCE_LABELS.get(c, c) for c in circumstances["categories"]]

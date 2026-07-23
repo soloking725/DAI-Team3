@@ -15,6 +15,9 @@ from shared.retrieval import retrieve_context
 from shared.safeguards import (
     classify_input,
     filter_output,
+    screen_output,
+    dynamic_disclaimer,
+    REDIRECT_PREAMBLE,
     check_confidence,
     LEGAL_ADVICE_REFUSAL,
     strip_thinking,
@@ -117,6 +120,9 @@ def _process_pending_question():
         return
 
     question = st.session_state.pop("pending_question")
+    is_interpretive = st.session_state.pop("pending_is_interpretive", False)
+    flagged = st.session_state.pop("pending_flagged", [])
+    flag_note = f" Flagged: {', '.join(flagged)}" if flagged else ""
 
     if _llm_requires_login():
         st.session_state.chat_history.append({"role": "user", "content": question})
@@ -163,11 +169,45 @@ def _process_pending_question():
                 )
                 cleaned = strip_thinking(api_result["response"])
                 filtered_text, warnings = filter_output(cleaned)
+
+                # Phase 1 — hard redaction gate. If the draft reads as an
+                # individualized eligibility/odds/strategy ruling, withhold the
+                # whole answer (a footnote can't make it compliant) and drop the
+                # sources, which would otherwise lend it false authority.
+                verdict, screened = screen_output(filtered_text)
+                if verdict == "redact":
+                    filtered_text = screened
+                    warnings = ["Withheld: this read as individualized legal advice." + flag_note]
+                    sources = []
+                elif is_interpretive:
+                    # Phase 2 — Redirect & Inform: a compliant factual answer to
+                    # an interpretive question, framed so it can't be read as a
+                    # ruling on the student's own case.
+                    filtered_text = f"{REDIRECT_PREAMBLE}\n\n{filtered_text}"
+                    warnings = warnings + [
+                        "Interpretive question — answered with general facts only." + flag_note
+                    ]
+
+                # Phase 2 — contextual disclaimer (lighter for factual queries,
+                # stronger for interpretive ones).
+                filtered_text = f"{filtered_text}\n\n{dynamic_disclaimer(is_interpretive)}"
+
                 st.session_state.chat_history.append({
                     "role": "assistant", "content": filtered_text, "warnings": warnings, "sources": sources,
                 })
                 st.session_state.conversation_history.append({"role": "user", "content": question})
                 st.session_state.conversation_history.append({"role": "assistant", "content": filtered_text})
+            elif is_interpretive:
+                # An interpretive question with no confident official grounding:
+                # we can't safely Redirect & Inform (nothing factual to ground
+                # it), so refer to an attorney rather than guess.
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "content": LEGAL_ADVICE_REFUSAL,
+                    "warnings": ["Interpretive question with no official-source grounding." + flag_note],
+                    "sources": [],
+                })
+                st.session_state.conversation_history.append({"role": "user", "content": question})
             else:
                 st.session_state.chat_history.append({
                     "role": "assistant",
@@ -307,17 +347,14 @@ def render_chat_panel():
                     })
                     st.rerun(scope="fragment")
 
+        # Interpretive ("am I eligible…?") vs procedural is decided here, but the
+        # answer is still produced by the one pipeline in _process_pending_question:
+        # an interpretive question is answered factually + framed (Redirect &
+        # Inform), not dead-ended with a flat refusal. The output redaction gate
+        # there is the backstop if the model strays into an actual ruling.
         is_legal, flagged = classify_input(question)
-        if is_legal:
-            st.session_state.chat_history.append({"role": "user", "content": question})
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "content": LEGAL_ADVICE_REFUSAL,
-                "warnings": [f"Question detected as seeking legal advice. Flagged: {', '.join(flagged)}"],
-            })
-            st.session_state.conversation_history.append({"role": "user", "content": question})
-            st.rerun(scope="fragment")
-        else:
-            st.session_state.is_processing = True
-            st.session_state.pending_question = question
-            st.rerun(scope="fragment")
+        st.session_state.is_processing = True
+        st.session_state.pending_question = question
+        st.session_state.pending_is_interpretive = is_legal
+        st.session_state.pending_flagged = flagged
+        st.rerun(scope="fragment")
