@@ -167,6 +167,22 @@ def _process_pending_question():
                     context=context,
                     history=st.session_state.conversation_history[-10:],
                 )
+                if api_result["error"]:
+                    # call_qwen_api already returned a clear, user-safe message for
+                    # this failure (network/timeout/not-configured) — it's not raw
+                    # model output, so running it through strip_thinking() would
+                    # just look for a FINAL ANSWER: marker that was never going to
+                    # be there and silently swap it for the generic "couldn't put
+                    # together a clean answer" fallback, hiding the real cause.
+                    st.session_state.chat_history.append({
+                        "role": "assistant",
+                        "content": api_result["response"],
+                        "warnings": [],
+                        "sources": [],
+                    })
+                    st.session_state.is_processing = False
+                    st.rerun(scope="fragment")
+
                 cleaned = strip_thinking(api_result["response"])
                 filtered_text, warnings = filter_output(cleaned)
 
