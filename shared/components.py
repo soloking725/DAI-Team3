@@ -199,11 +199,19 @@ HAMBURGER_CSS = """
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12) !important;
     }
     /* The brand wordmark is no longer part of a persistent header — it's
-       normal in-flow page content now (scrolls away like anything else),
-       just given a little breathing room since the fixed hamburger sits
-       on top of the page's natural top-left corner. */
+       normal in-flow page content now (scrolls away like anything else).
+       The fixed hamburger (position: fixed, above) takes no flow space, so
+       centering here is just text-align on the row — no column math needed,
+       and it holds at any viewport width since it isn't measured against
+       the hamburger at all. Streamlit wraps the logo <a> in a <p> that
+       carries its own text-align: left, so the rule has to target that
+       <p> directly, not just the row container. */
     div.st-key-vera_brand_row {
-        padding: 4px 0 12px 60px;
+        padding: 4px 0 12px;
+        text-align: center;
+    }
+    div.st-key-vera_brand_row p {
+        text-align: center;
     }
     .st-key-vera_brand_link p {
         font-size: 20px !important;
