@@ -25,11 +25,12 @@ QWEN_MODEL: str = os.getenv("QWEN_MODEL", "qwen-3.6-27b")
 # qwen-3.6-27b routinely spends 1,000+ tokens on visible "thinking" before it
 # ever reaches the required FINAL ANSWER: marker (observed directly against
 # the live endpoint), despite the system prompt asking for brief reasoning —
-# 2048 left too little room for the actual answer afterward, so a verbose
-# response would get cut off mid-reasoning, never emit the marker, and
-# shared/safeguards.py's fail-closed strip_thinking() would discard the whole
-# thing. Raised to leave headroom for both phases.
-QWEN_MAX_TOKENS: int = int(os.getenv("QWEN_MAX_TOKENS", "4096"))
+# and how long it rambles varies a lot call to call (temperature 0.3, not 0).
+# 4096 still wasn't consistently enough headroom in production; raised again
+# so an unusually verbose reasoning pass doesn't eat the whole budget before
+# the actual answer. shared/safeguards.py's strip_thinking() also now has a
+# secondary </think>-tag fallback for the cases this still doesn't cover.
+QWEN_MAX_TOKENS: int = int(os.getenv("QWEN_MAX_TOKENS", "8192"))
 QWEN_TEMPERATURE: float = float(os.getenv("QWEN_TEMPERATURE", "0.3"))
 
 

@@ -39,7 +39,6 @@ logger = logging.getLogger(__name__)
 LEGAL_ADVICE_PATTERNS = [
     "should i",
     "should i file",
-    "what should i do",
     "what are my chances",
     "am i eligible",
     "am i qualified",
@@ -296,10 +295,22 @@ def strip_thinking(response_text):
     # the reasoning itself mentions the marker name while planning to use it.
     marker_matches = list(re.finditer(r'FINAL ANSWER:\s*\n?', response_text, flags=re.IGNORECASE))
     if not marker_matches:
-        logger.warning("No FINAL ANSWER: marker found in LLM response — discarding raw output")
-        return MISSING_MARKER_FALLBACK
-
-    cleaned = response_text[marker_matches[-1].end():]
+        # Secondary mechanism: the model reliably closes its reasoning with a
+        # literal </think> tag even on the (observed-in-practice) calls where
+        # it skips the FINAL ANSWER: line afterward — usually because it ran
+        # long on "thinking" and got cut off by max_tokens right at the
+        # boundary. Content after the LAST </think> is exactly as safe to
+        # show as content after the marker (the model itself demarcated it as
+        # outside its private reasoning) — this only ever gets more content
+        # visible than we'd otherwise show, never less.
+        think_close_matches = list(re.finditer(r'</think>\s*\n?', response_text, flags=re.IGNORECASE))
+        if not think_close_matches:
+            logger.warning("No FINAL ANSWER: marker or </think> close tag found — discarding raw output")
+            return MISSING_MARKER_FALLBACK
+        logger.warning("No FINAL ANSWER: marker found, but recovered content after </think> close tag")
+        cleaned = response_text[think_close_matches[-1].end():]
+    else:
+        cleaned = response_text[marker_matches[-1].end():]
 
     # Strip <think>...</think> tags (some models use XML-style thinking tags)
     cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
