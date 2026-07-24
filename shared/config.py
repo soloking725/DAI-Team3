@@ -22,7 +22,14 @@ load_dotenv(_project_root / ".env")
 QWEN_API_KEY: str = os.getenv("QWEN_API_KEY", "")
 QWEN_BASE_URL: str = os.getenv("QWEN_BASE_URL", "http://litellm.colby.edu:4000/v1")
 QWEN_MODEL: str = os.getenv("QWEN_MODEL", "qwen-3.6-27b")
-QWEN_MAX_TOKENS: int = int(os.getenv("QWEN_MAX_TOKENS", "2048"))
+# qwen-3.6-27b routinely spends 1,000+ tokens on visible "thinking" before it
+# ever reaches the required FINAL ANSWER: marker (observed directly against
+# the live endpoint), despite the system prompt asking for brief reasoning —
+# 2048 left too little room for the actual answer afterward, so a verbose
+# response would get cut off mid-reasoning, never emit the marker, and
+# shared/safeguards.py's fail-closed strip_thinking() would discard the whole
+# thing. Raised to leave headroom for both phases.
+QWEN_MAX_TOKENS: int = int(os.getenv("QWEN_MAX_TOKENS", "4096"))
 QWEN_TEMPERATURE: float = float(os.getenv("QWEN_TEMPERATURE", "0.3"))
 
 

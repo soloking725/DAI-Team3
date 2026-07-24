@@ -53,10 +53,13 @@ def call_qwen_api(user_message: str, context: str, history: Optional[list] = Non
         # e.g. shared/pdf_guide.py's DSO-dashboard upload, aren't wrapped in
         # @st.fragment), a hung endpoint would otherwise freeze the whole page
         # indistinguishably from an outage instead of surfacing an error.
+        # 30s was too tight against this model in practice — a normal reply
+        # (verbose "thinking" phase included) measured ~32s against the live
+        # endpoint, so ordinary requests were hitting the ceiling.
         client = OpenAI(
             api_key=QWEN_API_KEY,
             base_url=QWEN_BASE_URL,
-            timeout=30.0,
+            timeout=60.0,
         )
 
         # Build message history — personalize with a factual user-context line
