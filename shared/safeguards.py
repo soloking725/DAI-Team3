@@ -186,7 +186,6 @@ REDACT_OUTPUT_PATTERNS = [
     r"\bi recommend that you\b",
     r"\byour best (?:option|bet|strategy)\b",
     r"\bto overcome your\b",
-    r"\byou should (?:file|apply|claim|appeal|request a waiver|submit)\b",
 ]
 
 
