@@ -68,7 +68,9 @@ with center:
                     padding:16px 18px;margin-top:16px">
           <p style="font-weight:500;margin:0 0 6px">Reset my progress</p>
           <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">
-            Clears your trip details, timeline, and chat history, and starts over from the welcome screen.
+            Clears your trip details, timeline, and Vera chat history, and starts over from the welcome screen.
+            Your account and any messages with your DSO are kept — use "Permanently delete my account" below
+            for those.
           </p>
         </div>
         """,

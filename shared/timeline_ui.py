@@ -19,8 +19,11 @@ CIRCUMSTANCES_CARD_CSS = """
         background:#fffbeb; border:0.5px solid #f6e05e; border-left:3px solid #d69e2e;
         border-radius:12px; padding:12px 14px; margin-bottom:16px;
     }
-    .vera-circ-card h4 { margin:0 0 6px; font-size:13px; color:#975a16; }
-    .vera-circ-card p { margin:0 0 4px; font-size:12px; color:#7b4b12; line-height:1.5; }
+    .vera-circ-card h4 { margin:0 0 8px; font-size:13px; color:#975a16; }
+    .vera-circ-item { margin:0 0 10px; }
+    .vera-circ-item:last-child { margin-bottom:0; }
+    .vera-circ-item p.vera-circ-label { margin:0 0 2px; font-size:12px; font-weight:600; color:#975a16; }
+    .vera-circ-item p.vera-circ-body { margin:0; font-size:12px; color:#7b4b12; line-height:1.5; }
 </style>
 """
 
@@ -29,11 +32,18 @@ def render_circumstances_card(categories: list, visa_type: str = "f-1"):
     """Grounded, confidence-gated guidance for any extenuating circumstances the
     user flagged at onboarding. Never fabricates — falls back to a plain
     'see the source pages' pointer when retrieval isn't confident, same
-    safeguard pattern as shared/timeline.py's step enrichment."""
+    safeguard pattern as shared/timeline.py's step enrichment.
+
+    Renders as ONE card with one heading, each flagged circumstance as a
+    compact sub-item inside it — a student with several flagged items used to
+    get a full separate card (each with its own <h4>) per item, stacking N
+    bold headers at the top of the page before the timeline even started.
+    """
     if not categories:
         return
 
     st.markdown(CIRCUMSTANCES_CARD_CSS, unsafe_allow_html=True)
+    items_html = []
     for cat_id in categories:
         label = CIRCUMSTANCE_LABELS.get(cat_id, cat_id)
         query = CIRCUMSTANCE_QUERIES.get(cat_id, label)
@@ -42,19 +52,24 @@ def render_circumstances_card(categories: list, visa_type: str = "f-1"):
             sources = retrieval.get("sources", [])
             source_note = f" (see: {sources[0]['title']})" if sources else ""
             body = (
-                f"Because you flagged \"{label}\", Vera has relevant official guidance available"
-                f"{source_note} — ask Vera about it in the chat for details."
+                f"Vera has relevant official guidance available{source_note} — "
+                "ask Vera about it in the chat for details."
             )
         else:
             body = (
-                f"You flagged \"{label}\". Vera doesn't have specific official guidance indexed for this yet — "
+                "Vera doesn't have specific official guidance indexed for this yet — "
                 "for anything involving a prior denial, SEVIS issue, or hardship, consider consulting a licensed "
                 "immigration attorney."
             )
-        st.markdown(
-            f"""<div class="vera-circ-card"><h4>{label}</h4><p>{body}</p></div>""",
-            unsafe_allow_html=True,
+        items_html.append(
+            f'<div class="vera-circ-item"><p class="vera-circ-label">{label}</p>'
+            f'<p class="vera-circ-body">{body}</p></div>'
         )
+
+    st.markdown(
+        f"""<div class="vera-circ-card"><h4>Things you flagged</h4>{"".join(items_html)}</div>""",
+        unsafe_allow_html=True,
+    )
 
 TIMELINE_CSS = """
 <style>
